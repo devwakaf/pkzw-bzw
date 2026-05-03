@@ -1,0 +1,397 @@
+import React, { useState } from 'react';
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  isToday, 
+  parseISO, 
+  isSameDay,
+  isWithinInterval 
+} from 'date-fns';
+import { ms } from 'date-fns/locale'; // Malay locale
+import { ChevronLeftIcon, ChevronRightIcon, MapPinIcon, ClockIcon, UsersIcon, LayoutListIcon, CalendarIcon, Trash2Icon } from 'lucide-react';
+import { Program, Zone, BzwSetting } from '../types';
+
+interface CalendarViewProps {
+  programs: Program[];
+  user: any;
+  onEdit: (p: Program) => void;
+  onDelete: (id: string) => void;
+  bzwSettings?: BzwSetting[];
+}
+
+const zoneColors: Record<Zone, string> = {
+  'HQ': 'bg-slate-800 text-white',
+  'Zon Timur': 'bg-blue-600 text-white',
+  'Zon Tengah': 'bg-amber-500 text-amber-950',
+  'Zon Barat': 'bg-emerald-600 text-white',
+};
+
+const formatTime12 = (timeStr?: string | null) => {
+  if (!timeStr) return '-';
+  try {
+    const [h, m] = timeStr.split(':');
+    if (!h || !m) return timeStr;
+    const hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${m} ${ampm}`;
+  } catch (e) {
+    return timeStr;
+  }
+};
+
+export default function CalendarView({ programs, user, onEdit, onDelete, bzwSettings }: CalendarViewProps) {
+  const [zoneFilter, setZoneFilter] = useState<Zone | 'All'>('All');
+  
+  // Year Filter
+  const availableYears = bzwSettings && bzwSettings.length > 0 
+    ? [...bzwSettings.map(s => s.year)].sort((a,b) => b - a) 
+    : [new Date().getFullYear()];
+  
+  const [selectedYear, setSelectedYear] = useState<number>(availableYears[0]);
+  
+  const currentBzwSetting = bzwSettings?.find(s => s.year === selectedYear);
+  const getLocalDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d); // Creates local midnight Date
+  };
+  const defaultBzwPeriod = React.useMemo(() => {
+    let start = new Date(selectedYear, 6, 7);
+    for (let m = 0; m < 12; m++) {
+      for (let d = 1; d <= 31; d++) {
+        const dt = new Date(selectedYear, m, d);
+        if (dt.getMonth() !== m) continue;
+        const fmt = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura', { month: 'numeric', day: 'numeric' }).format(dt);
+        if (fmt === '1/1') {
+          start = dt;
+          m = 12;
+          break;
+        }
+      }
+    }
+    const end = new Date(start);
+    end.setDate(end.getDate() + 29); // approx 1 month
+    return { start, end };
+  }, [selectedYear]);
+
+  const muharramStart = currentBzwSetting ? getLocalDate(currentBzwSetting.start_date) : defaultBzwPeriod.start;
+  const muharramEnd = currentBzwSetting ? getLocalDate(currentBzwSetting.end_date) : defaultBzwPeriod.end;
+
+
+  // Start with the start date's month
+  const [currentDate, setCurrentDate] = useState(() => new Date(muharramStart.getFullYear(), muharramStart.getMonth(), 1));
+
+  // When year changes, jump to start date
+  React.useEffect(() => {
+    if (currentBzwSetting) {
+      const [y, m, d] = currentBzwSetting.start_date.split('-').map(Number);
+      const start = new Date(y, m - 1, d);
+      setCurrentDate(new Date(start.getFullYear(), start.getMonth(), 1));
+      setSelectedDayObj(null);
+    }
+  }, [selectedYear, currentBzwSetting]);
+
+  const handlePrevMonth = () => {
+    const prev = subMonths(currentDate, 1);
+    if (!isWithinInterval(prev, { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) })) return;
+    setCurrentDate(prev);
+  }
+  const handleNextMonth = () => {
+    const next = addMonths(currentDate, 1);
+    if (!isWithinInterval(next, { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) })) return;
+    setCurrentDate(next);
+  }
+
+  const isPrevDisabled = !isWithinInterval(subMonths(currentDate, 1), { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) });
+  const isNextDisabled = !isWithinInterval(addMonths(currentDate, 1), { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) });
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(monthStart);
+  
+  const startDate = new Date(monthStart);
+  startDate.setDate(startDate.getDate() - startDate.getDay());
+  
+  const endDate = new Date(monthEnd);
+  endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
+
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
+
+  const filteredPrograms = zoneFilter === 'All' 
+    ? programs 
+    : programs.filter(p => p.zone === zoneFilter);
+
+  const programsByDate = days.reduce((acc, day) => {
+    const formattedDate = format(day, 'yyyy-MM-dd');
+    acc[formattedDate] = filteredPrograms.filter(p => p.date === formattedDate);
+    return acc;
+  }, {} as Record<string, Program[]>);
+
+  const [selectedDayObj, setSelectedDayObj] = useState<Date | null>(null);
+
+  const renderSelectedDayPanel = () => {
+    if (!selectedDayObj) {
+      return (
+        <div className="w-full lg:w-80 xl:w-96 bg-white border border-slate-200 rounded-xl p-6 shadow-sm shrink-0 flex flex-col items-center justify-center text-center text-slate-400 min-h-[300px]">
+          <CalendarIcon className="w-12 h-12 mb-3 opacity-20" />
+          <p className="text-sm">Klik pada mana-mana tarikh kalendar untuk melihat aktiviti.</p>
+        </div>
+      );
+    }
+
+    const dateStr = format(selectedDayObj, 'yyyy-MM-dd');
+    const dayPrograms = programsByDate[dateStr] || [];
+
+    return (
+      <div className="w-full lg:w-80 xl:w-96 bg-white border border-slate-200 rounded-xl flex flex-col shadow-sm shrink-0 overflow-hidden min-h-[300px] lg:sticky lg:top-6">
+        <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-emerald-100 text-emerald-700 w-10 h-10 rounded-lg flex flex-col items-center justify-center leading-tight">
+            <span className="text-[10px] font-bold uppercase">{format(selectedDayObj, 'MMM', { locale: ms })}</span>
+            <span className="text-sm font-bold">{format(selectedDayObj, 'dd')}</span>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Senarai Aktiviti</h3>
+            <p className="text-xs text-slate-500 font-medium">{format(selectedDayObj, 'EEEE, d MMMM yyyy', { locale: ms })}</p>
+          </div>
+        </div>
+        
+        <div className="p-4 flex-1 overflow-y-auto no-scrollbar">
+          {dayPrograms.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 flex flex-col items-center justify-center h-full">
+               <span className="text-sm">Tiada program direkodkan.</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dayPrograms.map(p => {
+                const bgClass = zoneColors[p.zone].split(' ')[0].replace('neutral-', 'slate-');
+                return (
+                  <div 
+                    key={p.id} 
+                    className={`group relative bg-white border border-slate-200 p-2.5 rounded-lg hover:border-emerald-300 hover:shadow-sm transition-all overflow-hidden ${user ? 'cursor-pointer' : 'cursor-default'}`}
+                    onClick={() => user && onEdit(p)}
+                  >
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${bgClass}`}></div>
+                    <div className="pl-2">
+                      <div className="flex justify-between items-start gap-2 mb-1">
+                        <h4 className="font-bold text-slate-800 text-[11px] sm:text-xs leading-snug">{p.title}</h4>
+                        {user && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(p.id);
+                            }}
+                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors -mt-1 -mr-1"
+                            title="Padam"
+                          >
+                            <Trash2Icon className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-600">
+                          <ClockIcon className="w-[10px] h-[10px] text-slate-400 shrink-0" />
+                          <span className="font-medium whitespace-nowrap">{formatTime12(p.time)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-600 min-w-0 max-w-[120px]">
+                          <MapPinIcon className="w-[10px] h-[10px] text-slate-400 shrink-0" />
+                          <span className="font-medium truncate">{p.location || '-'}</span>
+                        </div>
+                        <div className="text-[8px] sm:text-[9px] font-bold tracking-wider uppercase text-slate-400 mt-0.5 w-full">
+                          {p.zone} {p.activityType ? `• ${p.activityType}` : ''}
+                        </div>
+                      </div>
+
+                      {user && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <div className="bg-slate-50 text-emerald-600 p-1.5 rounded border border-slate-200 shadow-sm">
+                             <LayoutListIcon className="w-3 h-3" />
+                           </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Zone Filter */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center flex-1">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Filter Zon:</span>
+          <button
+            onClick={() => setZoneFilter('All')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              zoneFilter === 'All' 
+                ? 'bg-slate-800 text-white shadow-md' 
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            KESELURUHAN
+            <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${zoneFilter === 'All' ? 'bg-white/20' : 'bg-slate-200 text-slate-600'}`}>
+              {programs.length}
+            </span>
+          </button>
+          {(['HQ', 'Zon Timur', 'Zon Tengah', 'Zon Barat'] as Zone[]).map(z => {
+            const count = programs.filter(p => p.zone === z).length;
+            return (
+              <button
+                key={z}
+                onClick={() => setZoneFilter(z)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  zoneFilter === z 
+                    ? `${zoneColors[z]} shadow-md` 
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {z.toUpperCase()}
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${zoneFilter === z ? 'bg-black/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Year Filter */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3 w-full sm:w-auto shrink-0">
+           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-2">Tahun :</span>
+           <select 
+             value={selectedYear} 
+             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+             className="px-3 py-1.5 bg-sky-50 border border-sky-100 text-sky-700 font-bold rounded-lg text-sm outline-none focus:ring-2 focus:ring-sky-500 transition-shadow appearance-none"
+             style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%230284c7' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em`, paddingRight: `2.5rem` }}
+           >
+             {availableYears.map(yr => {
+               const s = bzwSettings?.find(b => b.year === yr);
+               return <option key={yr} value={yr}>BZW {yr} {s?.hijri_year ? `(${s.hijri_year})` : ''}</option>;
+             })}
+           </select>
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="bg-sky-50/50 rounded-xl shadow-sm border border-sky-100 p-4 md:p-6 flex-1 w-full min-w-0">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="text-sky-700">{format(currentDate, 'MMMM yyyy', { locale: ms })}</span>
+              {isWithinInterval(currentDate, { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) }) && (
+                <>
+                  <span className="hidden sm:inline text-sky-300 font-normal">/</span>
+                  <span className="text-amber-500 uppercase text-[10px] sm:text-xs tracking-widest font-black flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    Bulan Zakat & Wakaf {selectedYear}
+                  </span>
+                </>
+              )}
+            </h2>
+            <div className="flex gap-1">
+              <button 
+                onClick={handlePrevMonth}
+                disabled={isPrevDisabled}
+                className={`p-2 rounded-lg border transition-colors ${isPrevDisabled ? 'border-sky-50 text-sky-200 bg-transparent cursor-not-allowed' : 'border-slate-200 text-slate-600 hover:bg-slate-100 bg-white shadow-sm'}`}
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleNextMonth}
+                disabled={isNextDisabled}
+                className={`p-2 rounded-lg border transition-colors ${isNextDisabled ? 'border-sky-50 text-sky-200 bg-transparent cursor-not-allowed' : 'border-slate-200 text-slate-600 hover:bg-slate-100 bg-white shadow-sm'}`}
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 border-t border-l border-sky-100 shadow-sm rounded-lg overflow-hidden">
+            {['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'].map(day => (
+              <div key={day} className="py-2 text-center text-[10px] font-black text-sky-400 bg-sky-100/50 border-r border-b border-sky-100 uppercase tracking-tight">
+                {day.substring(0, 3)}
+              </div>
+            ))}
+            
+            {days.map((day, i) => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const dayPrograms = programsByDate[dateStr] || [];
+              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isTodayDate = isToday(day);
+              const isSelected = selectedDayObj && isSameDay(day, selectedDayObj);
+              const isMuharram = isWithinInterval(day, { start: muharramStart, end: muharramEnd });
+
+              return (
+                <div 
+                  key={i}
+                  onClick={() => setSelectedDayObj(day)}
+                  className={`
+                    min-h-[70px] md:min-h-[100px] border-r border-b border-sky-100 p-1 md:p-2 transition-all cursor-pointer flex flex-col items-start
+                    ${!isCurrentMonth ? 'text-slate-300 bg-slate-50/10' : 'text-slate-400 font-bold'}
+                    ${isMuharram && isCurrentMonth ? 'bg-amber-50/70' : 'bg-white/80'}
+                    ${isTodayDate ? 'ring-2 ring-sky-600 z-10 bg-sky-100/50 text-sky-800' : 'hover:bg-sky-50'}
+                    ${isSelected && !isTodayDate ? 'bg-sky-50 ring-1 ring-sky-300 z-10' : ''}
+                  `}
+                >
+                    <div className="flex justify-between items-start w-full relative">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`${isTodayDate ? 'text-sky-700 font-black' : isCurrentMonth ? (isMuharram ? 'text-amber-700' : 'text-slate-600') : ''} leading-none`}>
+                          {format(day, 'd')}
+                        </span>
+                        <span className={`text-[8px] md:text-[9px] tracking-tighter ${isCurrentMonth ? (isMuharram ? 'text-amber-500' : 'text-slate-400') : 'text-slate-300'} leading-none`}>
+                          {new Intl.DateTimeFormat('ms-MY-u-ca-islamic-umalqura', { day: 'numeric', month: 'short' }).format(day)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        {isMuharram && isCurrentMonth && (
+                          <span className="text-[8px] font-black text-amber-500/50 uppercase tracking-tighter hidden md:block leading-none mb-1">BZW</span>
+                        )}
+                        {dayPrograms.length > 0 && !isTodayDate && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                        )}
+                      </div>
+                    </div>
+                  
+                  <div className="flex-1 w-full flex flex-col gap-0.5 md:gap-1 overflow-x-hidden no-scrollbar mt-1">
+                    {Object.entries(
+                      dayPrograms.reduce((acc, p) => {
+                        acc[p.zone] = (acc[p.zone] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).map(([zone, count]) => {
+                      const bgAndText = zoneColors[zone as Zone] || 'bg-slate-500 text-white';
+                      const [bgClass, textClass] = bgAndText.split(' ');
+                      const finalBg = bgClass.replace('neutral-', 'slate-');
+                      const finalTxt = textClass ? textClass.replace('neutral-', 'slate-') : 'text-white';
+                      
+                      return (
+                        <div 
+                          key={zone} 
+                          className={`text-[8px] md:text-[10px] px-1 md:px-1.5 py-0.5 rounded flex justify-between items-center ${finalBg} ${finalTxt}`}
+                          title={`${count} Program di ${zone}`}
+                        >
+                          <span className="truncate max-w-[70%] font-medium">{zone === 'HQ' ? 'HQ' : zone.replace('Zon ', '')}</span>
+                          {count >= 1 && <span className="font-bold bg-black/10 px-1 rounded-sm leading-tight text-[8px] sm:text-[9px] ml-1">{count}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {renderSelectedDayPanel()}
+      </div>
+    </div>
+  );
+}

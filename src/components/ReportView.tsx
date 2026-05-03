@@ -1,0 +1,460 @@
+import React, { useState, useMemo } from 'react';
+import { format, parseISO } from 'date-fns';
+import { ms } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Program, Zone, BzwSetting } from '../types';
+import { PrinterIcon, SearchIcon, FilterIcon, FileTextIcon, MapPinIcon, UsersIcon, TrashIcon, Edit2Icon, CalendarIcon, DownloadIcon, AlertCircleIcon } from 'lucide-react';
+
+interface ReportViewProps {
+  programs: Program[];
+  user: any;
+  onEdit: (p: Program) => void;
+  onDelete: (id: string) => void;
+  bzwSettings?: BzwSetting[];
+}
+
+export default function ReportView({ programs, user, onEdit, onDelete, bzwSettings }: ReportViewProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [zoneFilter, setZoneFilter] = useState<Zone | 'All'>('All');
+  
+  const availableYears = bzwSettings && bzwSettings.length > 0 
+    ? [...bzwSettings.map(s => s.year)].sort((a,b) => b - a) 
+    : [new Date().getFullYear()];
+    
+  const [selectedYear, setSelectedYear] = useState<number | 'Semua'>(availableYears[0]);
+  
+  const [printErrorModalOpen, setPrintErrorModalOpen] = useState(false);
+
+  const filteredPrograms = useMemo(() => {
+    return programs
+      .filter(p => zoneFilter === 'All' || p.zone === zoneFilter)
+      .filter(p => {
+        if (selectedYear === 'Semua') return true;
+        const [y] = p.date.split('-');
+        return parseInt(y, 10) === selectedYear;
+      })
+      .filter(p => 
+        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.location?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [programs, searchTerm, zoneFilter, selectedYear, bzwSettings]);
+
+  const calculateProgramStats = (p: Program) => {
+    const zakat = (p.collections || []).filter(c => c.collection_type === 'Zakat').reduce((sum, c) => sum + Number(c.amount || 0), 0);
+    const wakaf = (p.collections || []).filter(c => c.collection_type === 'Wakaf').reduce((sum, c) => sum + Number(c.amount || 0), 0);
+    const bilZakat = (p.collections || []).filter(c => c.collection_type === 'Zakat').reduce((sum, c) => sum + Number(c.payers_count || 0), 0);
+    const bilWakaf = (p.collections || []).filter(c => c.collection_type === 'Wakaf').reduce((sum, c) => sum + Number(c.payers_count || 0), 0);
+    const ttlKutipan = zakat + wakaf;
+    const ttlBil = bilZakat + bilWakaf;
+    const pc = Number(p.program_cost || 0);
+    const roiNum = pc > 0 ? ((ttlKutipan - pc) / pc * 100) : null;
+    const roi = roiNum !== null ? roiNum.toFixed(0) + '%' : '-';
+    
+    return { zakat, wakaf, bilZakat, bilWakaf, ttlKutipan, ttlBil, pc, roi };
+  };
+
+  const handlePrint = () => {
+    try {
+      if (window !== window.top) {
+        setPrintErrorModalOpen(true);
+        return;
+      }
+      window.print();
+    } catch (e) {
+      setPrintErrorModalOpen(true);
+    }
+  };
+
+  const handleExportCSV = () => {
+    // 1. Define headers
+    const headers = ['Tajuk', 'Tarikh', 'Masa', 'Zon', 'Jenis Aktiviti', 'Lokasi', 'PIC Program', 'Peserta', 'Status', 'Catatan'];
+    
+    // 2. Format rows
+    const rows = filteredPrograms.map(p => [
+      `"${p.title.replace(/"/g, '""')}"`,
+      p.date,
+      p.time || '',
+      p.zone,
+      p.activityType || '',
+      `"${(p.location || '').replace(/"/g, '""')}"`,
+      `"${(p.pic_program || '').replace(/"/g, '""')}"`,
+      `"${(p.participants || '').replace(/"/g, '""')}"`,
+      p.status || 'Dirancang',
+      `"${(p.description || '').replace(/"/g, '""')}"`
+    ]);
+    
+    // 3. Combine to CSV string
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map(e => e.join(",")).join("\n");
+      
+    // 4. Create download link
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Laporan_Aktiviti_BZW_${format(new Date(), 'yyyyMMdd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF('landscape');
+    
+    // Add Report Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text(selectedYear === 'Semua' ? "REKOD AKTIVITI KESELURUHAN BULAN ZAKAT & WAKAF" : `REKOD AKTIVITI BULAN ZAKAT & WAKAF ${selectedYear}`, 14, 20);
+    
+    // Add filter status
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 116, 139);
+    const subTitle = zoneFilter !== 'All' ? `LAPORAN PENGURUSAN AKTIVITI - ${zoneFilter}` : 'SENARAI KESELURUHAN AKTIVITI MENGIKUT ZON';
+    doc.text(subTitle, 14, 26);
+    
+    // Add print date
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    const printDate = `Dicetak pada: ${format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ms })}`;
+    doc.text(printDate, 14, 32);
+
+    if (activeZones.length === 0) {
+      doc.text("Tiada program ditemui berdasarkan carian atau filter anda.", 14, 45);
+    } else {
+      let currentY = 40;
+
+      activeZones.forEach((zone) => {
+        // Add new page if Y gets too close to bottom before adding title
+        if (currentY > 180) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        const zonePrograms = groupedPrograms[zone];
+        
+        // Zone Title
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${zone.toUpperCase()} (${zonePrograms.length} Aktiviti)`, 14, currentY);
+
+        const tableColumn = ["Tarikh", "Program / Aktiviti", "Lokasi & PIC", "Impak Kewangan", "Status"];
+        const tableRows = zonePrograms.map(p => {
+          const { zakat, wakaf, bilZakat, bilWakaf, ttlKutipan, ttlBil, pc, roi } = calculateProgramStats(p);
+          
+          const fmtAmt = (num: number) => Number(num).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const fmtBil = (num: number) => Number(num).toLocaleString('en-MY') + ' orang';
+          
+          return [
+            `${format(parseISO(p.date), 'dd/MM/yy')}\n${p.time || '-'}`,
+            p.title,
+            `${p.location || '-'}\nPIC: ${p.pic_program || '-'}`,
+            `Kos Program: RM ${fmtAmt(pc)}\nZakat: ${fmtBil(bilZakat)} | RM ${fmtAmt(zakat)}\nWakaf: ${fmtBil(bilWakaf)} | RM ${fmtAmt(wakaf)}\n--------------------------\nJumlah: ${fmtBil(ttlBil)} | RM ${fmtAmt(ttlKutipan)}\nROI: ${roi}`,
+            p.status || 'Dirancang'
+          ];
+        });
+
+        autoTable(doc, {
+          startY: currentY + 4,
+          head: [tableColumn],
+          body: tableRows,
+          theme: 'grid',
+          headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: 'bold', lineColor: [226, 232, 240], lineWidth: 0.1 },
+          bodyStyles: { textColor: [51, 65, 85], lineColor: [226, 232, 240], lineWidth: 0.1 },
+          alternateRowStyles: { fillColor: [253, 254, 255] },
+          styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+          columnStyles: {
+            0: { cellWidth: 20 },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 45 },
+            3: { cellWidth: 50 },
+            4: { cellWidth: 20 }
+          }
+        });
+        
+        currentY = (doc as any).lastAutoTable.finalY + 12;
+      });
+    }
+
+    doc.save(`Laporan_BZW_${format(new Date(), 'yyyyMMdd')}.pdf`);
+  };
+
+  const groupedPrograms = useMemo(() => {
+    const zones: Zone[] = ['HQ', 'Zon Timur', 'Zon Tengah', 'Zon Barat'];
+    const groups: Record<string, Program[]> = {};
+    
+    zones.forEach(z => {
+      groups[z] = filteredPrograms.filter(p => p.zone === z);
+    });
+    
+    return groups;
+  }, [filteredPrograms]);
+
+  const zoneColors: Record<Zone, string> = {
+    'HQ': 'bg-slate-800 text-white',
+    'Zon Timur': 'bg-blue-600 text-white',
+    'Zon Tengah': 'bg-amber-500 text-amber-950',
+    'Zon Barat': 'bg-emerald-600 text-white',
+  };
+
+  const activeZones = useMemo(() => {
+    return Object.keys(groupedPrograms).filter(z => groupedPrograms[z].length > 0);
+  }, [groupedPrograms]);
+
+  return (
+    <div className="space-y-6">
+      {/* Controls (Hidden when printing) */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 print:hidden">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+            <div className="relative">
+              <SearchIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Cari program atau lokasi..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-slate-700"
+              />
+            </div>
+            
+            <div className="relative">
+              <FilterIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <select 
+                value={zoneFilter}
+                onChange={(e) => setZoneFilter(e.target.value as any)}
+                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-slate-700 appearance-none"
+              >
+                <option value="All">Semua Zon</option>
+                <option value="HQ">HQ</option>
+                <option value="Zon Timur">Zon Timur</option>
+                <option value="Zon Tengah">Zon Tengah</option>
+                <option value="Zon Barat">Zon Barat</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <CalendarIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <select 
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value === 'Semua' ? 'Semua' : parseInt(e.target.value))}
+                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-slate-700 appearance-none"
+              >
+                <option value="Semua">Semua Tahun</option>
+                {availableYears.map(yr => {
+                  const s = bzwSettings?.find(b => b.year === yr);
+                  return <option key={yr} value={yr}>BZW {yr} {s?.hijri_year ? `(${s.hijri_year})` : ''}</option>;
+                })}
+              </select>
+            </div>
+          </div>
+
+          {user && (
+            <div className="w-full md:w-auto flex flex-wrap gap-2">
+              <button 
+                onClick={handleExportCSV}
+                title="Eksport ke CSV"
+                className="flex-1 min-w-[120px] md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200"
+              >
+                <DownloadIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">CSV</span>
+              </button>
+
+              <button 
+                onClick={handleExportPDF}
+                title="Muat Turun PDF"
+                className="flex-1 min-w-[120px] md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200"
+              >
+                <FileTextIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+
+              <button 
+                onClick={handlePrint}
+                className="flex-1 min-w-[140px] md:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors border border-emerald-700"
+              >
+                <PrinterIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Cetak Laporan</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Printable Report Content */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8 print:shadow-none print:border-none print:p-0 print:text-black">
+        <div className="text-center mb-8 pb-6 border-b-2 border-slate-200 print:mb-6 print:pb-4">
+          <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tight print:text-lg">
+            {selectedYear === 'Semua' ? 'REKOD AKTIVITI KESELURUHAN BULAN ZAKAT & WAKAF' : `REKOD AKTIVITI BULAN ZAKAT & WAKAF ${selectedYear}`}
+          </h2>
+          <p className="text-slate-500 mt-2 font-semibold print:text-sm print:text-slate-600 uppercase">
+            {zoneFilter !== 'All' ? `LAPORAN PENGURUSAN AKTIVITI - ${zoneFilter}` : 'SENARAI KESELURUHAN AKTIVITI MENGIKUT ZON'}
+          </p>
+          <p className="hidden print:block text-xs mt-1 text-slate-400">
+            Dicetak pada: {format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ms })}
+          </p>
+        </div>
+
+        {activeZones.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 flex flex-col items-center">
+            <FileTextIcon className="w-12 h-12 mb-3 opacity-20" />
+            <p>Tiada program ditemui berdasarkan carian atau filter anda.</p>
+          </div>
+        ) : (
+          <div className="space-y-12 print:space-y-8">
+            {activeZones.map((zone) => (
+              <div key={zone} className="print:break-inside-avoid">
+                <div className="flex items-center gap-3 mb-4 border-b pb-2 border-slate-100">
+                  <h3 className={`px-4 py-1.5 rounded-lg font-bold text-sm tracking-widest uppercase shadow-sm ${zoneColors[zone as Zone]}`}>
+                    {zone}
+                  </h3>
+                  <span className="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded">
+                    {groupedPrograms[zone].length} Aktiviti
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto bg-white border border-slate-100 rounded-lg shadow-sm print:shadow-none print:border-slate-300">
+                  <table className="w-full text-left border-collapse min-w-[1000px] md:min-w-full">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider font-bold text-slate-500 border-b border-slate-200 print:bg-slate-100 print:border-slate-300">
+                      <tr>
+                        <th className="px-3 py-3 w-[10%]">Tarikh</th>
+                        <th className="px-3 py-3 w-[28%]">Program / Aktiviti</th>
+                        <th className="px-3 py-3 w-[22%]">Lokasi & PIC</th>
+                        <th className="px-3 py-3 w-[20%]">Impak Kewangan</th>
+                        <th className="px-3 py-3 w-[10%] text-center">Status</th>
+                        {user && <th className="px-3 py-3 w-[10%] text-center print:hidden">Tindakan</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 print:divide-slate-300">
+                      {groupedPrograms[zone].map((program) => {
+                        const { zakat, wakaf, bilZakat, bilWakaf, ttlKutipan, ttlBil, pc, roi } = calculateProgramStats(program);
+                        
+                        const fmtAmt = (num: number) => Number(num).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const fmtBil = (num: number) => Number(num).toLocaleString('en-MY') + ' orang';
+                        
+                        return (
+                        <tr key={program.id} className="group hover:bg-slate-50 transition-colors text-[11px] print:hover:bg-transparent">
+                          <td className="px-3 py-3 align-top leading-tight">
+                            <div className="font-bold text-slate-800">
+                               {format(parseISO(program.date), 'dd/MM/yy')}
+                            </div>
+                            <div className="text-slate-400 font-medium text-[10px] mt-0.5">{program.time || ''}</div>
+                          </td>
+                          <td className="px-3 py-3 align-top">
+                            <div className="font-bold text-slate-800 leading-tight">
+                              {program.title}
+                            </div>
+                            {program.activityType && (
+                              <div className="mt-0.5 text-[9px] text-emerald-600 font-bold uppercase tracking-tight">
+                                {program.activityType}
+                              </div>
+                            )}
+                            {program.description && (
+                              <div className="mt-1 text-slate-500 text-[10px] italic line-clamp-2">
+                                {program.description}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 align-top">
+                            <div className="font-medium text-slate-600 leading-tight break-words">{program.location || '-'}</div>
+                            <div className="text-slate-700 font-semibold mt-1">PIC: {program.pic_program || '-'}</div>
+                            {program.participants && (
+                               <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{program.participants}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 align-top">
+                            <div className="flex flex-col gap-1 text-[10px]">
+                              <div className="flex justify-between text-slate-600">
+                                <span className="text-slate-400">Kos Program:</span> <span className="font-semibold text-rose-600">RM {fmtAmt(pc)}</span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span className="text-slate-400">Zakat:</span> <span>{fmtBil(bilZakat)} <span className="text-slate-300 mx-0.5">|</span> RM {fmtAmt(zakat)}</span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span className="text-slate-400">Wakaf:</span> <span>{fmtBil(bilWakaf)} <span className="text-slate-300 mx-0.5">|</span> RM {fmtAmt(wakaf)}</span>
+                              </div>
+                              <div className="border-t border-slate-200 mt-0.5 mb-1"></div>
+                              <div className="flex justify-between font-bold text-slate-800">
+                                <span className="text-slate-500">Jumlah:</span> <span className="text-emerald-600">{fmtBil(ttlBil)} <span className="text-emerald-200 mx-0.5">|</span> RM {fmtAmt(ttlKutipan)}</span>
+                              </div>
+                              <div className="flex justify-between font-bold text-slate-800">
+                                <span className="text-slate-500">ROI:</span> <span className="text-emerald-600 bg-emerald-50 px-1 rounded">{roi}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 align-top text-center">
+                              <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase rounded border ${
+                                program.status === 'Selesai' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                                program.status === 'Batal' ? 'bg-red-50 text-red-700 border-red-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {program.status || 'Dirancang'}
+                              </span>
+                          </td>
+                          {user && (
+                            <td className="px-3 py-3 align-top text-center print:hidden">
+                              <div className="flex justify-center gap-1">
+                                <button onClick={() => onEdit(program)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Edit2Icon className="w-3.5 h-3.5"/></button>
+                                <button onClick={() => onDelete(program.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Padam"><TrashIcon className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Print-only footer */}
+      <div className="hidden print:block text-center mt-8 text-slate-500 text-sm">
+        <p>Dicetak pada: {format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ms })}</p>
+      </div>
+
+      {printErrorModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm shadow-2xl">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
+            <div className="p-4 bg-amber-500 text-white flex items-start gap-3">
+              <div className="bg-white/20 p-2 rounded-lg shrink-0 mt-0.5 border border-white/10 shadow-sm">
+                <AlertCircleIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight">Fungsi Cetakan</h3>
+                <p className="text-white/90 text-sm mt-1 leading-snug">
+                   Fungsi cetakan tidak disokong secara langsung dalam paparan pratinjau ini.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-6 text-slate-600 text-sm font-medium leading-relaxed">
+              <p className="mb-4">Sila pilih salah satu cara berikut:</p>
+              <ul className="list-disc pl-5 space-y-2 mb-4 text-slate-700">
+                <li>Gunakan fungsi <strong>Muat Turun PDF</strong> sebagai alternatif.</li>
+                <li>Atau buka aplikasi ini dalam tab baharu menggunakan butang di sebelah kanan atas skrin AI Studio untuk membolehkan fungsi cetakan pelayar web.</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button 
+                onClick={() => setPrintErrorModalOpen(false)}
+                className="py-2.5 px-6 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-bold text-sm shadow-sm transition-colors"
+              >
+                Faham
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
