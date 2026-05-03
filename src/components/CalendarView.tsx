@@ -60,6 +60,8 @@ export default function CalendarView({ programs, user, onEdit, onDelete, bzwSett
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d); // Creates local midnight Date
   };
+  const [jakimMap, setJakimMap] = useState<Record<string, string>>({});
+
   const defaultBzwPeriod = React.useMemo(() => {
     let start = new Date(selectedYear, 6, 7);
     for (let m = 0; m < 12; m++) {
@@ -79,12 +81,67 @@ export default function CalendarView({ programs, user, onEdit, onDelete, bzwSett
     return { start, end };
   }, [selectedYear]);
 
-  const muharramStart = currentBzwSetting ? getLocalDate(currentBzwSetting.start_date) : defaultBzwPeriod.start;
-  const muharramEnd = currentBzwSetting ? getLocalDate(currentBzwSetting.end_date) : defaultBzwPeriod.end;
+  // We find the exact 1/1 start date from JAKIM map if available around our default date
+  const jakaStartString = React.useMemo(() => {
+    const candidates = [0, 1, -1, 2, -2].map(offset => {
+      const d = new Date(defaultBzwPeriod.start);
+      d.setDate(d.getDate() + offset);
+      return { str: format(d, 'yyyy-MM-dd'), date: d };
+    });
+    for (const c of candidates) {
+      if (jakimMap[c.str] && jakimMap[c.str].endsWith('-01-01')) {
+        return c.date;
+      }
+    }
+    return defaultBzwPeriod.start;
+  }, [jakimMap, defaultBzwPeriod.start]);
 
+  const muharramStart = currentBzwSetting ? getLocalDate(currentBzwSetting.start_date) : jakaStartString;
+  const muharramEnd = currentBzwSetting ? getLocalDate(currentBzwSetting.end_date) : new Date(jakaStartString.getTime() + 29 * 24 * 60 * 60 * 1000);
 
-  // Start with the start date's month
   const [currentDate, setCurrentDate] = useState(() => new Date(muharramStart.getFullYear(), muharramStart.getMonth(), 1));
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(monthStart);
+  
+  const startDate = new Date(monthStart);
+  startDate.setDate(startDate.getDate() - startDate.getDay());
+  
+  const endDate = new Date(monthEnd);
+  endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
+
+  React.useEffect(() => {
+    let active = true;
+    const syncJakim = async () => {
+      try {
+        const d1 = new Date(startDate);
+        const d2 = new Date(endDate);
+        const monthsStr = new Set([
+          `${d1.getFullYear()}-${d1.getMonth() + 1}`,
+          `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`,
+          `${d2.getFullYear()}-${d2.getMonth() + 1}`
+        ]);
+        
+        const newMap: Record<string, string> = {};
+        for (const ym of monthsStr) {
+          const [yyyy, mm] = ym.split('-');
+          const res = await fetch(`https://api.waktusolat.app/v2/solat/SGR01?year=${yyyy}&month=${mm}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          for (const p of data.prayers) {
+            const gregorian = `${yyyy}-${mm.padStart(2, '0')}-${p.day.toString().padStart(2, '0')}`;
+            newMap[gregorian] = p.hijri;
+          }
+        }
+        if (!active) return;
+        setJakimMap(prev => ({...prev, ...newMap}));
+      } catch (e) {
+        console.error('Failed to sync JAKIM date:', e);
+      }
+    };
+    syncJakim();
+    return () => { active = false; };
+  }, [startDate.toISOString(), endDate.toISOString()]);
 
   // When year changes, jump to start date
   React.useEffect(() => {
@@ -109,15 +166,6 @@ export default function CalendarView({ programs, user, onEdit, onDelete, bzwSett
 
   const isPrevDisabled = !isWithinInterval(subMonths(currentDate, 1), { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) });
   const isNextDisabled = !isWithinInterval(addMonths(currentDate, 1), { start: startOfMonth(muharramStart), end: endOfMonth(muharramEnd) });
-
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(monthStart);
-  
-  const startDate = new Date(monthStart);
-  startDate.setDate(startDate.getDate() - startDate.getDay());
-  
-  const endDate = new Date(monthEnd);
-  endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
 
@@ -347,7 +395,15 @@ export default function CalendarView({ programs, user, onEdit, onDelete, bzwSett
                           {format(day, 'd')}
                         </span>
                         <span className={`text-[8px] md:text-[9px] tracking-tighter ${isCurrentMonth ? (isMuharram ? 'text-amber-500' : 'text-slate-400') : 'text-slate-300'} leading-none`}>
-                          {new Intl.DateTimeFormat('ms-MY-u-ca-islamic-umalqura', { day: 'numeric', month: 'short' }).format(day)}
+                          {(() => {
+                            const dateStr = format(day, 'yyyy-MM-dd');
+                            if (jakimMap[dateStr]) {
+                              const hijriMonths = ['Muh.', 'Saf.', 'Rab. I', 'Rab. II', 'Jam. I', 'Jam. II', 'Rej.', 'Syaa.', 'Ram.', 'Syaw.', 'Zulk.', 'Zulh.'];
+                              const [y, m, d] = jakimMap[dateStr].split('-');
+                              return `${parseInt(d)} ${hijriMonths[parseInt(m) - 1]}`;
+                            }
+                            return new Intl.DateTimeFormat('ms-MY-u-ca-islamic-umalqura', { day: 'numeric', month: 'short' }).format(day);
+                          })()}
                         </span>
                       </div>
                       <div className="flex flex-col items-end">
