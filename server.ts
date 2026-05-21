@@ -667,18 +667,30 @@ async function startServer() {
       if (!cleanTitle) return res.status(400).json({ error: "Tajuk diperlukan" });
 
       await executeDb(req, res, async (p) => {
-        await p.query(
-          "INSERT INTO programs (id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [id, cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, getMalaysiaDateTimeString()]
-        );
-        
-        if (collections && Array.isArray(collections)) {
-          for (const c of collections) {
-            await p.query(
-              "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
-              [c.id || crypto.randomUUID(), id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null]
-            );
+        const conn = await p.getConnection();
+        try {
+          await conn.beginTransaction();
+
+          await conn.query(
+            "INSERT INTO programs (id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [id, cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, getMalaysiaDateTimeString()]
+          );
+          
+          if (collections && Array.isArray(collections)) {
+            for (const c of collections) {
+              await conn.query(
+                "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
+                [crypto.randomUUID(), id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null]
+              );
+            }
           }
+
+          await conn.commit();
+        } catch (err) {
+          await conn.rollback();
+          throw err;
+        } finally {
+          conn.release();
         }
       });
       res.json({ id, title: cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, status: finalStatus, program_cost, collections });
@@ -693,19 +705,31 @@ async function startServer() {
       const { title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, collections } = req.body;
       const finalStatus = status || 'Dirancang';
       await executeDb(req, res, async (p) => {
-        await p.query(
-          "UPDATE programs SET title = ?, date = ?, time = ?, location = ?, zone = ?, activityType = ?, pic_program = ?, participants = ?, description = ?, status = ?, program_cost = ? WHERE id = ?",
-          [title, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, req.params.id]
-        );
-        
-        await p.query("DELETE FROM program_collections WHERE program_id = ?", [req.params.id]);
-        if (collections && Array.isArray(collections)) {
-          for (const c of collections) {
-            await p.query(
-              "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
-              [c.id || crypto.randomUUID(), req.params.id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null]
-            );
+        const conn = await p.getConnection();
+        try {
+          await conn.beginTransaction();
+
+          await conn.query(
+            "UPDATE programs SET title = ?, date = ?, time = ?, location = ?, zone = ?, activityType = ?, pic_program = ?, participants = ?, description = ?, status = ?, program_cost = ? WHERE id = ?",
+            [title, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, req.params.id]
+          );
+          
+          await conn.query("DELETE FROM program_collections WHERE program_id = ?", [req.params.id]);
+          if (collections && Array.isArray(collections)) {
+            for (const c of collections) {
+              await conn.query(
+                "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
+                [crypto.randomUUID(), req.params.id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null]
+              );
+            }
           }
+
+          await conn.commit();
+        } catch (err) {
+          await conn.rollback();
+          throw err;
+        } finally {
+          conn.release();
         }
       });
       res.json(req.body);
