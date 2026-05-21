@@ -421,6 +421,46 @@ async function startServer() {
     } catch (e) {} // response already sent in executeDb
   });
 
+  // Global error logger for diagnostics
+  const globalErrors: any[] = [];
+
+  app.get("/api/debug-errors", (req, res) => {
+    res.json(globalErrors);
+  });
+
+  app.get("/api/debug-db-status", async (req, res) => {
+    try {
+      const result: any = {};
+      await executeDb(req, res, async (p) => {
+        try {
+          const [tables]: any = await p.query("SHOW TABLES");
+          result.tables = tables;
+        } catch (err: any) {
+          result.tables_error = err.message;
+        }
+
+        try {
+          const [cols]: any = await p.query("SHOW COLUMNS FROM program_collections");
+          result.program_collections_columns = cols;
+        } catch (err: any) {
+          result.program_collections_columns_error = err.message;
+        }
+
+        try {
+          const [collections]: any = await p.query("SELECT COUNT(*) as count FROM program_collections");
+          result.program_collections_count = collections[0]?.count;
+        } catch (err: any) {
+          result.program_collections_count_error = err.message;
+        }
+      });
+      res.json(result);
+    } catch (e: any) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: e.message });
+      }
+    }
+  });
+
 
   // --- Auth Routes ---
   // REMOVED: /api/auth/debug for security. Use controlled admin pages instead.
@@ -583,7 +623,7 @@ async function startServer() {
   // BZW Settings
   app.get("/api/bzw-settings", async (req, res) => {
     try {
-      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date FROM bzw_settings ORDER BY year ASC"));
+      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year FROM bzw_settings ORDER BY year ASC"));
       res.json(rows);
     } catch (e: any) {
       console.error("Error fetching bzw_settings:", e);
@@ -593,12 +633,12 @@ async function startServer() {
 
   app.post("/api/bzw-settings", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
-      const { year, start_date, end_date } = req.body;
+      const { year, start_date, end_date, hijri_year } = req.body;
       const [existing]: any = await executeDb(req, res, (p) => p.query("SELECT year FROM bzw_settings WHERE year = ?", [year]));
       if (existing && existing.length > 0) {
-        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ? WHERE year = ?", [start_date, end_date, year]));
+        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ? WHERE year = ?", [start_date, end_date, hijri_year || null, year]));
       } else {
-        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date) VALUES (?, ?, ?)", [year, start_date, end_date]));
+        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year) VALUES (?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null]));
       }
       res.json({ success: true });
     } catch (e: any) {
@@ -673,7 +713,21 @@ async function startServer() {
 
           await conn.query(
             "INSERT INTO programs (id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [id, cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, getMalaysiaDateTimeString()]
+            [
+              id,
+              cleanTitle,
+              date,
+              time,
+              location,
+              zone,
+              activityType,
+              pic_program,
+              participants,
+              description,
+              finalStatus,
+              program_cost || 0,
+              getMalaysiaDateTimeString()
+            ]
           );
           
           if (collections && Array.isArray(collections)) {
@@ -696,6 +750,7 @@ async function startServer() {
       res.json({ id, title: cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, status: finalStatus, program_cost, collections });
     } catch (e: any) {
       console.error("Error creating program:", e);
+      globalErrors.push({ timestamp: new Date().toISOString(), path: "POST /api/programs", error: e.message || String(e), stack: e.stack });
       if (!res.headersSent) res.status(500).json({ error: "Gagal menyimpan aktiviti" });
     }
   });
@@ -704,6 +759,7 @@ async function startServer() {
     try {
       const { title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, collections } = req.body;
       const finalStatus = status || 'Dirancang';
+
       await executeDb(req, res, async (p) => {
         const conn = await p.getConnection();
         try {
@@ -711,7 +767,20 @@ async function startServer() {
 
           await conn.query(
             "UPDATE programs SET title = ?, date = ?, time = ?, location = ?, zone = ?, activityType = ?, pic_program = ?, participants = ?, description = ?, status = ?, program_cost = ? WHERE id = ?",
-            [title, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, req.params.id]
+            [
+              title,
+              date,
+              time,
+              location,
+              zone,
+              activityType,
+              pic_program,
+              participants,
+              description,
+              finalStatus,
+              program_cost || 0,
+              req.params.id
+            ]
           );
           
           await conn.query("DELETE FROM program_collections WHERE program_id = ?", [req.params.id]);
@@ -733,8 +802,9 @@ async function startServer() {
         }
       });
       res.json(req.body);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error updating program:", e);
+      globalErrors.push({ timestamp: new Date().toISOString(), path: "PUT /api/programs/" + req.params.id, error: e.message || String(e), stack: e.stack, body: req.body });
       if (!res.headersSent) res.status(500).json({ error: "Gagal mengemaskini aktiviti" });
     }
   });
