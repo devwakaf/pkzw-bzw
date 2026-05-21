@@ -604,12 +604,14 @@ async function startServer() {
 
   app.get("/api/programs", async (req, res) => {
     try {
-      const [programs] = await executeDb(req, res, (p) => p.query("SELECT *, DATE_FORMAT(date, '%Y-%m-%d') as date FROM programs WHERE is_deleted = 0 ORDER BY date ASC"));
+      const [programs] = await executeDb(req, res, (p) => p.query("SELECT *, DATE_FORMAT(date, '%Y-%m-%d') as formatted_date FROM programs WHERE is_deleted = 0 ORDER BY date ASC"));
       const [collections] = await executeDb(req, res, (p) => p.query("SELECT * FROM program_collections"));
       
       const programsWithCollections = (programs as any[]).map(prog => {
+        const { formatted_date, ...rest } = prog;
         return {
-          ...prog,
+          ...rest,
+          date: formatted_date || prog.date,
           collections: (collections as any[]).filter(c => c.program_id === prog.id)
         };
       });
@@ -623,13 +625,21 @@ async function startServer() {
   app.get("/api/programs/deleted", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
       const [rows] = await executeDb(req, res, (p) => p.query(`
-        SELECT p.*, DATE_FORMAT(p.date, '%Y-%m-%d') as date, u.name as deleted_by_name 
+        SELECT p.*, DATE_FORMAT(p.date, '%Y-%m-%d') as formatted_date, u.name as deleted_by_name 
         FROM programs p 
         LEFT JOIN users u ON p.deleted_by = u.id 
         WHERE p.is_deleted = 1 
         ORDER BY date ASC
       `));
-      res.json(rows);
+      
+      const fixedRows = (rows as any[]).map(r => {
+        const { formatted_date, ...rest } = r;
+        return {
+          ...rest,
+          date: formatted_date || r.date
+        };
+      });
+      res.json(fixedRows);
     } catch (e) {}
   });
 

@@ -4,7 +4,7 @@ import { ms } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Program, Zone, BzwSetting } from '../types';
-import { PrinterIcon, SearchIcon, FilterIcon, FileTextIcon, MapPinIcon, UsersIcon, TrashIcon, Edit2Icon, CalendarIcon, DownloadIcon, AlertCircleIcon } from 'lucide-react';
+import { PrinterIcon, SearchIcon, FilterIcon, FileTextIcon, TrashIcon, Edit2Icon, CalendarIcon, DownloadIcon, AlertCircleIcon } from 'lucide-react';
 
 interface ReportViewProps {
   programs: Program[];
@@ -107,24 +107,24 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 41, 59);
-    doc.text(selectedYear === 'Semua' ? "REKOD AKTIVITI KESELURUHAN BULAN ZAKAT & WAKAF" : `REKOD AKTIVITI BULAN ZAKAT & WAKAF ${selectedYear}`, 14, 20);
+    doc.text(selectedYear === 'Semua' ? "REKOD AKTIVITI KESELURUHAN BULAN ZAKAT & WAKAF" : `REKOD AKTIVITI BULAN ZAKAT & WAKAF ${selectedYear}`, 10, 20);
     
     // Add filter status
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(100, 116, 139);
     const subTitle = zoneFilter !== 'All' ? `LAPORAN PENGURUSAN AKTIVITI - ${zoneFilter}` : 'SENARAI KESELURUHAN AKTIVITI MENGIKUT ZON';
-    doc.text(subTitle, 14, 26);
+    doc.text(subTitle, 10, 26);
     
     // Add print date
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
     const printDate = `Dicetak pada: ${format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ms })}`;
-    doc.text(printDate, 14, 32);
+    doc.text(printDate, 10, 32);
 
     if (activeZones.length === 0) {
-      doc.text("Tiada program ditemui berdasarkan carian atau filter anda.", 14, 45);
+      doc.text("Tiada program ditemui berdasarkan carian atau filter anda.", 10, 45);
     } else {
       let currentY = 40;
 
@@ -141,9 +141,9 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 41, 59);
-        doc.text(`${zone.toUpperCase()} (${zonePrograms.length} Aktiviti)`, 14, currentY);
+        doc.text(`${zone.toUpperCase()} (${zonePrograms.length} Aktiviti)`, 10, currentY);
 
-        const tableColumn = ["Tarikh", "Program / Aktiviti", "Lokasi & PIC", "Impak Kewangan", "Status"];
+        const tableColumn = ["Tarikh", "Program / Aktiviti", "Lokasi & PIC", "Jumlah Kutipan", "Status"];
         const tableRows = zonePrograms.map(p => {
           const { zakat, wakaf, bilZakat, bilWakaf, ttlKutipan, ttlBil, pc, roi } = calculateProgramStats(p);
           
@@ -154,7 +154,7 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
             `${format(parseISO(p.date), 'dd/MM/yy')}\n${p.time || '-'}`,
             p.title,
             `${p.location || '-'}\nPIC: ${p.pic_program || '-'}`,
-            `Kos Program: RM ${fmtAmt(pc)}\nZakat: ${fmtBil(bilZakat)} | RM ${fmtAmt(zakat)}\nWakaf: ${fmtBil(bilWakaf)} | RM ${fmtAmt(wakaf)}\n--------------------------\nJumlah: ${fmtBil(ttlBil)} | RM ${fmtAmt(ttlKutipan)}\nROI: ${roi}`,
+            `Zakat: ${fmtBil(bilZakat)} | RM ${fmtAmt(zakat)}\nWakaf: ${fmtBil(bilWakaf)} | RM ${fmtAmt(wakaf)}\n--------------------------\nJumlah: ${fmtBil(ttlBil)} | RM ${fmtAmt(ttlKutipan)}`,
             p.status || 'Dirancang'
           ];
         });
@@ -167,14 +167,15 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
           headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: 'bold', lineColor: [226, 232, 240], lineWidth: 0.1 },
           bodyStyles: { textColor: [51, 65, 85], lineColor: [226, 232, 240], lineWidth: 0.1 },
           alternateRowStyles: { fillColor: [253, 254, 255] },
-          styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+          styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
           columnStyles: {
-            0: { cellWidth: 20 },
-            1: { cellWidth: 55 },
-            2: { cellWidth: 45 },
+            0: { cellWidth: 25 },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 55 },
             3: { cellWidth: 50 },
             4: { cellWidth: 20 }
-          }
+          },
+          margin: { left: 10, right: 10 }
         });
         
         currentY = (doc as any).lastAutoTable.finalY + 12;
@@ -325,7 +326,7 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                         <th className="px-3 py-3 w-[10%]">Tarikh</th>
                         <th className="px-3 py-3 w-[28%]">Program / Aktiviti</th>
                         <th className="px-3 py-3 w-[22%]">Lokasi & PIC</th>
-                        <th className="px-3 py-3 w-[20%]">Impak Kewangan</th>
+                        <th className="px-3 py-3 w-[20%]">{user ? 'Impak Kewangan' : 'Jumlah Kutipan'}</th>
                         <th className="px-3 py-3 w-[10%] text-center">Status</th>
                         {user && <th className="px-3 py-3 w-[10%] text-center print:hidden">Tindakan</th>}
                       </tr>
@@ -369,9 +370,11 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                           </td>
                           <td className="px-3 py-3 align-top">
                             <div className="flex flex-col gap-1 text-[10px]">
-                              <div className="flex justify-between text-slate-600">
-                                <span className="text-slate-400">Kos Program:</span> <span className="font-semibold text-rose-600">RM {fmtAmt(pc)}</span>
-                              </div>
+                              {user && (
+                                <div className="flex justify-between text-slate-600">
+                                  <span className="text-slate-400">Kos Program:</span> <span className="font-semibold text-rose-600">RM {fmtAmt(pc)}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between text-slate-600">
                                 <span className="text-slate-400">Zakat:</span> <span>{fmtBil(bilZakat)} <span className="text-slate-300 mx-0.5">|</span> RM {fmtAmt(zakat)}</span>
                               </div>
@@ -382,9 +385,11 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                               <div className="flex justify-between font-bold text-slate-800">
                                 <span className="text-slate-500">Jumlah:</span> <span className="text-emerald-600">{fmtBil(ttlBil)} <span className="text-emerald-200 mx-0.5">|</span> RM {fmtAmt(ttlKutipan)}</span>
                               </div>
-                              <div className="flex justify-between font-bold text-slate-800">
-                                <span className="text-slate-500">ROI:</span> <span className="text-emerald-600 bg-emerald-50 px-1 rounded">{roi}</span>
-                              </div>
+                              {user && (
+                                <div className="flex justify-between font-bold text-slate-800">
+                                  <span className="text-slate-500">ROI:</span> <span className="text-emerald-600 bg-emerald-50 px-1 rounded">{roi}</span>
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-3 py-3 align-top text-center">
