@@ -219,9 +219,9 @@ function App() {
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Memuatkan sistem...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden print:overflow-visible print:bg-white">
       {/* Top Header & Navbar */}
-      <header className="bg-emerald-800 text-white shadow-md z-20 shrink-0">
+      <header className="bg-emerald-800 text-white shadow-md z-20 shrink-0 print:hidden">
         <div className="px-6 md:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="bg-gradient-to-br from-white/20 to-white/5 p-0.5 rounded-lg shrink-0 border border-white/20 shadow-inner group transition-transform hover:scale-105">
@@ -343,7 +343,7 @@ function App() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto w-full p-4 md:p-6 pb-24 relative">
+      <main className="flex-1 overflow-y-auto w-full p-4 md:p-6 pb-24 relative print:overflow-visible print:p-0 print:pb-0">
         {loading && (
           <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-sm z-30 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2">

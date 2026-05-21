@@ -319,19 +319,19 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                   </span>
                 </div>
 
-                <div className="overflow-x-auto bg-white border border-slate-100 rounded-lg shadow-sm print:shadow-none print:border-slate-300">
-                  <table className="w-full text-left border-collapse min-w-[1000px] md:min-w-full">
-                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider font-bold text-slate-500 border-b border-slate-200 print:bg-slate-100 print:border-slate-300">
+                <div className="overflow-x-auto bg-white border border-slate-100 rounded-lg shadow-sm print:overflow-visible print:shadow-none print:border-none print:rounded-none">
+                  <table className="w-full text-left border-collapse min-w-[1000px] md:min-w-full print:min-w-full print:border print:border-slate-400">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider font-bold text-slate-500 border-b border-slate-200 print:bg-slate-100 print:text-black print:border-b-2 print:border-slate-400">
                       <tr>
-                        <th className="px-3 py-3 w-[10%]">Tarikh</th>
-                        <th className="px-3 py-3 w-[28%]">Program / Aktiviti</th>
-                        <th className="px-3 py-3 w-[22%]">Lokasi & PIC</th>
-                        <th className="px-3 py-3 w-[20%]">{user ? 'Impak Kewangan' : 'Jumlah Kutipan'}</th>
-                        <th className="px-3 py-3 w-[10%] text-center">Status</th>
+                        <th className="px-3 py-3 w-[10%] print:border print:border-slate-400">Tarikh</th>
+                        <th className="px-3 py-3 w-[28%] print:border print:border-slate-400">Program / Aktiviti</th>
+                        <th className="px-3 py-3 w-[22%] print:border print:border-slate-400">Lokasi & PIC</th>
+                        <th className="px-3 py-3 w-[20%] print:border print:border-slate-400">{user ? 'Impak Kewangan' : 'Jumlah Kutipan'}</th>
+                        <th className="px-3 py-3 w-[10%] text-center print:border print:border-slate-400">Status</th>
                         {user && <th className="px-3 py-3 w-[10%] text-center print:hidden">Tindakan</th>}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 print:divide-slate-300">
+                    <tbody className="divide-y divide-slate-100 print:divide-slate-400">
                       {groupedPrograms[zone].map((program) => {
                         const { zakat, wakaf, bilZakat, bilWakaf, ttlKutipan, ttlBil, pc, roi } = calculateProgramStats(program);
                         
@@ -339,61 +339,61 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                         const fmtBil = (num: number) => Number(num).toLocaleString('en-MY') + ' orang';
                         
                         return (
-                        <tr key={program.id} className="group hover:bg-slate-50 transition-colors text-[11px] print:hover:bg-transparent">
-                          <td className="px-3 py-3 align-top leading-tight">
-                            <div className="font-bold text-slate-800">
+                        <tr key={program.id} className="group hover:bg-slate-50 transition-colors text-[11px] print:hover:bg-transparent text-slate-800 print:text-black">
+                          <td className="px-3 py-3 align-top leading-tight print:border print:border-slate-400">
+                            <div className="font-bold text-slate-800 print:text-black">
                                {format(parseISO(program.date), 'dd/MM/yy')}
                             </div>
-                            <div className="text-slate-400 font-medium text-[10px] mt-0.5">{program.time || ''}</div>
+                            <div className="text-slate-400 print:text-slate-600 font-medium text-[10px] mt-0.5">{program.time || ''}</div>
                           </td>
-                          <td className="px-3 py-3 align-top">
-                            <div className="font-bold text-slate-800 leading-tight">
+                          <td className="px-3 py-3 align-top print:border print:border-slate-400">
+                            <div className="font-bold text-slate-800 print:text-black leading-tight">
                               {program.title}
                             </div>
                             {program.activityType && (
-                              <div className="mt-0.5 text-[9px] text-emerald-600 font-bold uppercase tracking-tight">
+                              <div className="mt-0.5 text-[9px] text-emerald-600 print:text-emerald-800 font-bold uppercase tracking-tight">
                                 {program.activityType}
                               </div>
                             )}
                             {program.description && (
-                              <div className="mt-1 text-slate-500 text-[10px] italic line-clamp-2">
+                              <div className="mt-1 text-slate-500 print:text-slate-700 text-[10px] italic line-clamp-2 print:line-clamp-none">
                                 {program.description}
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-3 align-top">
-                            <div className="font-medium text-slate-600 leading-tight break-words">{program.location || '-'}</div>
-                            <div className="text-slate-700 font-semibold mt-1">PIC: {program.pic_program || '-'}</div>
+                          <td className="px-3 py-3 align-top print:border print:border-slate-400">
+                            <div className="font-medium text-slate-600 print:text-black leading-tight break-words">{program.location || '-'}</div>
+                            <div className="text-slate-700 print:text-black font-semibold mt-1">PIC: {program.pic_program || '-'}</div>
                             {program.participants && (
-                               <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{program.participants}</div>
+                               <div className="text-[10px] text-slate-400 print:text-slate-600 mt-0.5 line-clamp-1 print:line-clamp-none">{program.participants}</div>
                             )}
                           </td>
-                          <td className="px-3 py-3 align-top">
-                            <div className="flex flex-col gap-1 text-[10px]">
+                          <td className="px-3 py-3 align-top print:border print:border-slate-400">
+                            <div className="flex flex-col gap-1 text-[10px] print:text-black">
                               {user && (
-                                <div className="flex justify-between text-slate-600">
-                                  <span className="text-slate-400">Kos Program:</span> <span className="font-semibold text-rose-600">RM {fmtAmt(pc)}</span>
+                                <div className="flex justify-between text-slate-600 print:text-black">
+                                  <span className="text-slate-400 print:text-slate-700">Kos Program:</span> <span className="font-semibold text-rose-600 print:text-rose-800">RM {fmtAmt(pc)}</span>
                                 </div>
                               )}
-                              <div className="flex justify-between text-slate-600">
-                                <span className="text-slate-400">Zakat:</span> <span>{fmtBil(bilZakat)} <span className="text-slate-300 mx-0.5">|</span> RM {fmtAmt(zakat)}</span>
+                              <div className="flex justify-between text-slate-600 print:text-black">
+                                <span className="text-slate-400 print:text-slate-700">Zakat:</span> <span>{fmtBil(bilZakat)} <span className="text-slate-300 print:text-slate-500 mx-0.5">|</span> RM {fmtAmt(zakat)}</span>
                               </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span className="text-slate-400">Wakaf:</span> <span>{fmtBil(bilWakaf)} <span className="text-slate-300 mx-0.5">|</span> RM {fmtAmt(wakaf)}</span>
+                              <div className="flex justify-between text-slate-600 print:text-black">
+                                <span className="text-slate-400 print:text-slate-700">Wakaf:</span> <span>{fmtBil(bilWakaf)} <span className="text-slate-300 print:text-slate-500 mx-0.5">|</span> RM {fmtAmt(wakaf)}</span>
                               </div>
-                              <div className="border-t border-slate-200 mt-0.5 mb-1"></div>
-                              <div className="flex justify-between font-bold text-slate-800">
-                                <span className="text-slate-500">Jumlah:</span> <span className="text-emerald-600">{fmtBil(ttlBil)} <span className="text-emerald-200 mx-0.5">|</span> RM {fmtAmt(ttlKutipan)}</span>
+                              <div className="border-t border-slate-200 print:border-slate-400 mt-0.5 mb-1"></div>
+                              <div className="flex justify-between font-bold text-slate-800 print:text-black">
+                                <span className="text-slate-500 print:text-slate-700">Jumlah:</span> <span className="text-emerald-600 print:text-emerald-800">{fmtBil(ttlBil)} <span className="text-emerald-200 print:text-slate-300 mx-0.5">|</span> RM {fmtAmt(ttlKutipan)}</span>
                               </div>
                               {user && (
-                                <div className="flex justify-between font-bold text-slate-800">
-                                  <span className="text-slate-500">ROI:</span> <span className="text-emerald-600 bg-emerald-50 px-1 rounded">{roi}</span>
+                                <div className="flex justify-between font-bold text-slate-800 print:text-black">
+                                  <span className="text-slate-500 print:text-slate-700">ROI:</span> <span className="text-emerald-600 print:text-emerald-800 bg-emerald-50 print:bg-transparent print:border-none px-1 rounded">{roi}</span>
                                 </div>
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-3 align-top text-center">
-                              <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase rounded border ${
+                          <td className="px-3 py-3 align-top text-center print:border print:border-slate-400">
+                              <span className={`inline-block px-2 py-0.5 text-[9px] font-bold uppercase rounded border print:border-none print:px-0 print:py-0 print:text-black ${
                                 program.status === 'Selesai' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
                                 program.status === 'Batal' ? 'bg-red-50 text-red-700 border-red-200' :
                                 'bg-amber-50 text-amber-700 border-amber-200'

@@ -2,7 +2,17 @@
 
 @media print {
   @page {
-    size: landscape;
+    size: A4 landscape;
     margin: 1cm;
+  }
+  
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    background-color: white !important;
   }
 }
