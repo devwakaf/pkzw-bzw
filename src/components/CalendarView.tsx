@@ -238,6 +238,13 @@ export default function CalendarView({
 
   const [selectedDayObj, setSelectedDayObj] = useState<Date | null>(null);
   const [viewingProgram, setViewingProgram] = useState<Program | null>(null);
+  const [viewingTab, setViewingTab] = useState<'maklumat' | 'kewangan'>('maklumat');
+
+  React.useEffect(() => {
+    if (viewingProgram) {
+      setViewingTab('maklumat');
+    }
+  }, [viewingProgram]);
 
   const calculateProgramStats = (p: Program) => {
     const zakat = (p.collections || [])
@@ -627,21 +634,21 @@ export default function CalendarView({
       {/* Program Details Modal */}
       {viewingProgram && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm sm:p-6 shadow-xl"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-350"
           onClick={() => setViewingProgram(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-screen"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[92vh] animate-in zoom-in-95 duration-205"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50">
               <div>
-                <h3 className="font-bold text-slate-800 text-lg">
+                <h3 className="font-bold text-slate-800 text-base sm:text-lg">
                   {viewingProgram.title}
                 </h3>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1.5">
                   <span
-                    className={`inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border ${
+                    className={`inline-block px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded border ${
                       viewingProgram.status === "Selesai"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                         : viewingProgram.status === "Batal"
@@ -651,167 +658,205 @@ export default function CalendarView({
                   >
                     {viewingProgram.status || "Dirancang"}
                   </span>
-                  <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">
+                  <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-widest">
                     {viewingProgram.zone}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setViewingProgram(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors self-start"
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors self-start shrink-0 ml-4"
               >
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 sm:p-6 overflow-y-auto no-scrollbar space-y-6 flex-1">
-              {/* Timing & Location */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex bg-slate-50/50 p-3 items-start rounded-xl border border-slate-100/50 gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
-                    <CalendarIcon className="w-4 h-4" />
+            {/* Tabs for details */}
+            <div className="flex border-b border-slate-100 bg-slate-50/20 p-1.5 gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewingTab('maklumat')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 ${
+                  viewingTab === 'maklumat'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <LayoutListIcon className="w-3.5 h-3.5" />
+                <span>Maklumat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingTab('kewangan')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 ${
+                  viewingTab === 'kewangan'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <TargetIcon className="w-3.5 h-3.5" />
+                <span>Kutipan & Impak</span>
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto no-scrollbar flex-1">
+              
+              {/* TAB 1: MAKLUMAT */}
+              {viewingTab === 'maklumat' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Timing & Location */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="flex bg-slate-50/50 p-3 items-start rounded-xl border border-slate-100/50 gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                        <CalendarIcon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                          Tarikh & Masa
+                        </div>
+                        <div className="text-xs font-semibold text-slate-700 truncate">
+                          {viewingProgram.date ? (() => {
+                            const [y, m, d] = viewingProgram.date.split('T')[0].split('-');
+                            return `${d}/${m}/${y}`;
+                          })() : ''}{" "}
+                        </div>
+                        <div className="text-[10px] font-medium text-slate-500 mt-0.5">
+                          {formatTime12(viewingProgram.time)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex bg-slate-50/50 p-3 items-start rounded-xl border border-slate-100/50 gap-3">
+                      <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center shrink-0 mt-0.5">
+                        <MapPinIcon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                          Lokasi
+                        </div>
+                        <div className="text-xs font-semibold text-slate-700 break-words mt-0.5">
+                          {viewingProgram.location || "-"}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                      Tarikh & Masa
-                    </div>
-                    <div className="text-xs font-semibold text-slate-700 truncate">
-                      {viewingProgram.date ? (() => {
-                        const [y, m, d] = viewingProgram.date.split('T')[0].split('-');
-                        return `${d}/${m}/${y}`;
-                      })() : ''}{" "}
-                    </div>
-                    <div className="text-[10px] font-medium text-slate-500">
-                      {formatTime12(viewingProgram.time)}
+
+                  {/* Detail list */}
+                  <div className="space-y-3.5 text-sm text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50">
+                    {viewingProgram.activityType && (
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+                          Jenis Aktiviti
+                        </div>
+                        <div className="font-semibold text-slate-700 text-xs sm:text-sm">
+                          {viewingProgram.activityType}
+                        </div>
+                      </div>
+                    )}
+                    {user && viewingProgram.description && (
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+                          Penerangan
+                        </div>
+                        <div className="font-medium text-slate-700 text-xs sm:text-sm">
+                          {viewingProgram.description}
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3.5">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex flex-row items-center gap-1.5">
+                          <UserCircleIcon className="w-3.5 h-3.5 text-slate-400" /> PIC Program
+                        </div>
+                        <div className="font-semibold text-slate-750 text-xs truncate">
+                          {viewingProgram.pic_program || "-"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex flex-row items-center gap-1.5">
+                          <UsersIcon className="w-3.5 h-3.5 text-slate-400" /> Kumpulan Sasar
+                        </div>
+                        <div className="font-semibold text-slate-755 text-xs truncate">
+                          {viewingProgram.participants || "-"}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex bg-slate-50/50 p-3 items-start rounded-xl border border-slate-100/50 gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center shrink-0 mt-0.5">
-                    <MapPinIcon className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                      Lokasi
-                    </div>
-                    <div className="text-xs font-semibold text-slate-700 break-words">
-                      {viewingProgram.location || "-"}
-                    </div>
-                  </div>
+              )}
+
+              {/* TAB 2: KEWANGAN & IMPAK */}
+              {viewingTab === 'kewangan' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Financial Stats */}
+                  {(() => {
+                    const stats = calculateProgramStats(viewingProgram);
+                    const fmtAmt = (num: number) =>
+                      Number(num).toLocaleString("en-MY", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      });
+                    const fmtBil = (num: number) =>
+                      Number(num).toLocaleString("en-MY");
+
+                    return (
+                      <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/50">
+                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                          <TargetIcon className="w-3.5 h-3.5 text-slate-400" /> Data Kutipan & Impak
+                        </h4>
+
+                        <div className="space-y-3">
+                          {user && (
+                            <div className="flex justify-between items-center text-xs sm:text-sm border-b border-slate-200/40 pb-2.5">
+                              <span className="text-slate-500 font-medium">
+                                Kos Program
+                              </span>
+                              <span className="font-bold text-rose-600">
+                                RM {fmtAmt(stats.pc)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center text-xs sm:text-sm border-b border-slate-200/40 pb-2.5">
+                            <span className="text-slate-500 font-medium">
+                              Kutipan Zakat
+                            </span>
+                            <div className="text-right">
+                              <span className="font-bold text-slate-800">
+                                RM {fmtAmt(stats.zakat)}
+                              </span>
+                              <span className="text-[10px] text-slate-400 ml-1.5 font-bold">
+                                ({fmtBil(stats.bilZakat)} org)
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center text-xs sm:text-sm border-b border-slate-200/40 pb-2.5">
+                            <span className="text-slate-500 font-medium">
+                              Kutipan Wakaf
+                            </span>
+                            <div className="text-right">
+                              <span className="font-bold text-slate-800">
+                                RM {fmtAmt(stats.wakaf)}
+                              </span>
+                              <span className="text-[10px] text-slate-400 ml-1.5 font-bold">
+                                ({fmtBil(stats.bilWakaf)} org)
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center text-xs sm:text-sm font-bold bg-emerald-50 text-emerald-800 p-2.5 rounded-lg border border-emerald-100/40 mt-2">
+                            <span>Jumlah Kutipan</span>
+                            <span>RM {fmtAmt(stats.ttlKutipan)}</span>
+                          </div>
+                          {user && (
+                            <div className="flex justify-between items-center text-xs sm:text-sm font-bold bg-slate-100 p-2.5 rounded-lg text-slate-700 mt-2">
+                              <span>ROI (Kadar Impak)</span>
+                              <span>{stats.roi}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
-              </div>
-
-              {/* Detail list */}
-              <div className="space-y-4 text-sm text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100/50">
-                {viewingProgram.activityType && (
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-                      Jenis Aktiviti
-                    </div>
-                    <div className="font-medium text-slate-700">
-                      {viewingProgram.activityType}
-                    </div>
-                  </div>
-                )}
-                {user && viewingProgram.description && (
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-                      Penerangan
-                    </div>
-                    <div className="font-medium text-slate-700">
-                      {viewingProgram.description}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5 flex flex-row items-center gap-1.5">
-                      <UserCircleIcon className="w-3.5 h-3.5" /> PIC Program
-                    </div>
-                    <div className="font-medium text-slate-700">
-                      {viewingProgram.pic_program || "-"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5 flex flex-row items-center gap-1.5">
-                      <UsersIcon className="w-3.5 h-3.5" /> Sasaran Kumpulan
-                    </div>
-                    <div className="font-medium text-slate-700">
-                      {viewingProgram.participants || "-"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Financial Stats */}
-              {(() => {
-                const stats = calculateProgramStats(viewingProgram);
-                const fmtAmt = (num: number) =>
-                  Number(num).toLocaleString("en-MY", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  });
-                const fmtBil = (num: number) =>
-                  Number(num).toLocaleString("en-MY");
-
-                return (
-                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100/50">
-                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                      <TargetIcon className="w-3.5 h-3.5" /> Data Kutipan{" "}
-                      {user ? "& Impak" : ""}
-                    </h4>
-
-                    <div className="space-y-2.5">
-                      {user && (
-                        <div className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-2.5">
-                          <span className="text-slate-500 font-medium">
-                            Kos Program
-                          </span>
-                          <span className="font-bold text-rose-600">
-                            RM {fmtAmt(stats.pc)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-2.5">
-                        <span className="text-slate-500 font-medium">
-                          Kutipan Zakat
-                        </span>
-                        <div className="text-right">
-                          <span className="font-bold text-slate-800">
-                            RM {fmtAmt(stats.zakat)}
-                          </span>
-                          <span className="text-[10px] text-slate-400 ml-2">
-                            ({fmtBil(stats.bilZakat)} org)
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-2.5">
-                        <span className="text-slate-500 font-medium">
-                          Kutipan Wakaf
-                        </span>
-                        <div className="text-right">
-                          <span className="font-bold text-slate-800">
-                            RM {fmtAmt(stats.wakaf)}
-                          </span>
-                          <span className="text-[10px] text-slate-400 ml-2">
-                            ({fmtBil(stats.bilWakaf)} org)
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center text-sm font-bold bg-emerald-50/50 p-2 rounded-lg text-emerald-800 mt-2">
-                        <span>Jumlah Kutipan</span>
-                        <span>RM {fmtAmt(stats.ttlKutipan)}</span>
-                      </div>
-                      {user && (
-                        <div className="flex justify-between items-center text-sm font-bold bg-slate-100 p-2 rounded-lg text-slate-700 mt-2">
-                          <span>ROI</span>
-                          <span>{stats.roi}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+              )}
             </div>
 
             {user && (

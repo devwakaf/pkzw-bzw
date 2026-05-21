@@ -3,6 +3,7 @@ import { Program } from '../types';
 import { format, parseISO } from 'date-fns';
 import { ms } from 'date-fns/locale';
 import { Trash2Icon, RotateCcwIcon, SearchIcon, CalendarIcon, UserIcon, MapPinIcon, InfoIcon } from 'lucide-react';
+import { api } from '../services/api';
 
 interface TrashViewProps {
   onRecover: (id: string) => Promise<void>;
@@ -24,14 +25,8 @@ export default function TrashView({ onRecover, onHardDelete }: TrashViewProps) {
   const fetchDeleted = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('bzw_token');
-      const res = await fetch('/api/programs/deleted', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDeletedPrograms(data);
-      }
+      const data = await api.getDeletedPrograms();
+      setDeletedPrograms(data);
     } catch (err) {
       console.error(err);
     } finally {

@@ -10,6 +10,23 @@ const getHeaders = () => {
   };
 };
 
+function parseDateString(dateVal: any): string {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    if (dateVal.includes('T') || dateVal.includes('Z')) {
+      const d = new Date(dateVal);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const r = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${r}`;
+      }
+    }
+    return dateVal.split('T')[0];
+  }
+  return dateVal;
+}
+
 export const api = {
   // Auth
   login: async (credentials: any) => {
@@ -148,7 +165,7 @@ export const api = {
     }
     return data.map((p: any) => ({
       ...p,
-      date: typeof p.date === 'string' ? p.date.split('T')[0] : p.date // MySQL returns ISO date or object, we need YYYY-MM-DD
+      date: parseDateString(p.date)
     }));
   },
   addProgram: async (program: Program) => {
@@ -185,6 +202,19 @@ export const api = {
         throw new Error(err.error || 'Failed to delete program');
     }
     return res.json();
+  },
+  getDeletedPrograms: async (): Promise<Program[]> => {
+    const res = await fetch(`${API_BASE}/programs/deleted`, { headers: getHeaders() });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to get deleted programs');
+    }
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data.map((p: any) => ({
+      ...p,
+      date: parseDateString(p.date)
+    }));
   },
 
   // BZW Settings

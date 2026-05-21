@@ -29,6 +29,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState('daily');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [activeTab, setActiveTab] = useState<'asas' | 'butiran' | 'kutipan'>('asas');
 
   useEffect(() => {
     if (program) {
@@ -40,7 +41,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
     const { name, value, type } = e.target;
     let parsedValue: any = value;
     if (type === 'number') {
-      parsedValue = value === '' ? 0 : parseFloat(value);
+      parsedValue = value === '' ? '' : parseFloat(value);
     }
     setFormData(prev => ({ ...prev, [name]: parsedValue }));
   };
@@ -49,11 +50,11 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
     const currentList = Array.isArray(formData.collections) ? formData.collections : [];
     setFormData(prev => ({
       ...prev,
-      collections: [...currentList, { collection_type: 'Zakat', amount: 0, payers_count: 0, payment_type: '' }]
+      collections: [...currentList, { collection_type: 'Zakat', amount: '' as any, payers_count: '' as any, payment_type: '' }]
     }));
   };
 
-  const updateCollection = (index: number, field: string, value: string | number) => {
+  const updateCollection = (index: number, field: string, value: any) => {
     const currentList = Array.isArray(formData.collections) ? [...formData.collections] : [];
     currentList[index] = { ...currentList[index], [field]: value };
     setFormData(prev => ({ ...prev, collections: currentList }));
@@ -68,26 +69,44 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!program && isRecurring && recurrenceEndDate && formData.date) {
-      const start = new Date(formData.date);
-      const end = new Date(recurrenceEndDate);
+    const sanitizedCollections = (formData.collections || []).map(coll => ({
+      ...coll,
+      amount: coll.amount === '' ? 0 : (parseFloat(coll.amount as any) || 0),
+      payers_count: coll.payers_count === '' ? 0 : (parseInt(coll.payers_count as any) || 0)
+    }));
+    
+    const sanitizedProgramCost = formData.program_cost === '' ? 0 : (parseFloat(formData.program_cost as any) || 0);
+    
+    const finalFormData = {
+      ...formData,
+      program_cost: sanitizedProgramCost,
+      collections: sanitizedCollections
+    };
+
+    if (!program && isRecurring && recurrenceEndDate && finalFormData.date) {
+      const [sy, sm, sd] = finalFormData.date.split('-').map(Number);
+      const start = new Date(Date.UTC(sy, sm - 1, sd));
+      
+      const [ey, em, ed] = recurrenceEndDate.split('-').map(Number);
+      const end = new Date(Date.UTC(ey, em - 1, ed));
+      
       const programs: Program[] = [];
       let current = new Date(start);
 
       while (current <= end) {
         programs.push({
-          ...formData,
+          ...finalFormData,
           id: uuidv4(),
           createdAt: new Date().toISOString(),
           date: current.toISOString().split('T')[0],
         } as Program);
 
         if (recurrencePattern === 'daily') {
-          current.setDate(current.getDate() + 1);
+          current.setUTCDate(current.getUTCDate() + 1);
         } else if (recurrencePattern === 'weekly') {
-          current.setDate(current.getDate() + 7);
+          current.setUTCDate(current.getUTCDate() + 7);
         } else if (recurrencePattern === 'monthly') {
-          current.setMonth(current.getMonth() + 1);
+          current.setUTCMonth(current.getUTCMonth() + 1);
         } else {
           break;
         }
@@ -100,229 +119,361 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
     }
 
     onSubmit({
-      ...formData,
+      ...finalFormData,
       id: program?.id || uuidv4(),
       createdAt: program?.createdAt || new Date().toISOString(),
     } as Program);
   };
 
+  const handleNext = () => {
+    if (activeTab === 'asas') {
+      if (!formData.title || !formData.date || !formData.zone) {
+        const form = document.getElementById('program-form') as HTMLFormElement;
+        form?.reportValidity();
+        return;
+      }
+      setActiveTab('butiran');
+    } else if (activeTab === 'butiran') {
+      setActiveTab('kutipan');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto w-full">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-8 relative flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50 rounded-t-xl shrink-0">
-          <h2 className="text-xl font-bold text-slate-800">
-            {program ? 'Kemaskini Program' : 'Rekod Program Baru'}
-          </h2>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-hidden w-full">
+      <div className="bg-white shadow-2xl w-full max-w-3xl relative flex flex-col rounded-xl max-h-[90vh] transition-all duration-300">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-100 bg-slate-50/85 rounded-t-xl shrink-0">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-800">
+              {program ? 'Kemaskini Program' : 'Rekod Program Baru'}
+            </h2>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium mt-0.5">
+              Sila lengkapkan maklumat mengikut langkah yang disediakan.
+            </p>
+          </div>
           <button 
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
+            className="p-1.5 hover:bg-slate-200/80 rounded-lg transition-colors text-slate-500 hover:text-slate-800"
           >
             <XIcon className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto border-b border-slate-100">
-          <form id="program-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Multi-step Tab Indicator Bar */}
+        <div className="flex border-b border-slate-100 bg-slate-50/40 p-1.5 gap-1.5 shrink-0 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab('asas')}
+            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all text-center min-w-[70px] ${
+              activeTab === 'asas'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span className="hidden sm:inline">1. Maklumat Asas</span>
+            <span className="inline sm:hidden">Asas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTab === 'asas' && (!formData.title || !formData.date || !formData.zone)) {
+                const form = document.getElementById('program-form') as HTMLFormElement;
+                form?.reportValidity();
+                return;
+              }
+              setActiveTab('butiran');
+            }}
+            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all text-center min-w-[70px] ${
+              activeTab === 'butiran'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span className="hidden sm:inline">2. Butiran Tambahan</span>
+            <span className="inline sm:hidden">Butiran</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTab === 'asas' && (!formData.title || !formData.date || !formData.zone)) {
+                const form = document.getElementById('program-form') as HTMLFormElement;
+                form?.reportValidity();
+                return;
+              }
+              setActiveTab('kutipan');
+            }}
+            className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all text-center min-w-[70px] relative ${
+              activeTab === 'kutipan'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span className="hidden sm:inline">3. Kutipan & Kewangan</span>
+            <span className="inline sm:hidden">Kutipan</span>
+            {formData.collections && formData.collections.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] rounded-full font-extrabold">
+                {formData.collections.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Form Body Container */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+          <form id="program-form" onSubmit={handleSubmit} className="space-y-4">
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Nama Program / Aktiviti <span className="text-red-500">*</span></label>
-                <input 
-                  type="text" 
-                  name="title" 
-                  required
-                  value={formData.title} 
-                  onChange={handleChange}
-                  placeholder="Cth: Edaran Brochure Pasar Malam"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                />
-              </div>
-
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* TAB 1: ASAS */}
+            {activeTab === 'asas' && (
+              <div className="space-y-4 animate-in fade-in duration-200">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Tarikh <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Nama Program / Aktiviti <span className="text-red-500">*</span></label>
                   <input 
-                    type="date" 
-                    name="date" 
+                    type="text" 
+                    name="title" 
                     required
-                    value={formData.date} 
+                    value={formData.title} 
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
+                    placeholder="Cth: Edaran Brochure Pasar Malam"
+                    className="w-full px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Masa</label>
-                  <input 
-                    type="time" 
-                    name="time" 
-                    value={formData.time} 
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                  />
-                </div>
-              </div>
-
-              {!program && (
-                <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <div className="flex items-center mb-4">
-                    <input
-                      type="checkbox"
-                      id="isRecurring"
-                      checked={isRecurring}
-                      onChange={(e) => setIsRecurring(e.target.checked)}
-                      className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Tarikh <span className="text-red-500">*</span></label>
+                    <input 
+                      type="date" 
+                      name="date" 
+                      required
+                      value={formData.date} 
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
                     />
-                    <label htmlFor="isRecurring" className="ml-2 block text-sm font-bold text-slate-700">
-                      Program Berulang (Recurring)
-                    </label>
                   </div>
-                  
-                  {isRecurring && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <div>
-                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kekerapan</label>
-                         <select
-                           value={recurrencePattern}
-                           onChange={(e) => setRecurrencePattern(e.target.value)}
-                           className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800"
-                         >
-                           <option value="daily">Harian</option>
-                           <option value="weekly">Mingguan</option>
-                           <option value="monthly">Bulanan</option>
-                         </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Tarikh Tamat <span className="text-red-500">*</span></label>
-                        <input
-                          type="date"
-                          required={isRecurring}
-                          value={recurrenceEndDate}
-                          onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                        />
-                      </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Masa</label>
+                    <input 
+                      type="time" 
+                      name="time" 
+                      value={formData.time} 
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Jenis Aktiviti</label>
+                    <select 
+                      name="activityType" 
+                      value={formData.activityType || ''} 
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800 text-sm"
+                    >
+                      <option value="">Pilih...</option>
+                      {(categories || []).map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Zon <span className="text-red-500">*</span></label>
+                    <select 
+                      name="zone" 
+                      required
+                      value={formData.zone} 
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800 text-sm"
+                    >
+                      <option value="HQ">HQ</option>
+                      <option value="Zon Timur">Zon Timur</option>
+                      <option value="Zon Tengah">Zon Tengah</option>
+                      <option value="Zon Barat">Zon Barat</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Status Program</label>
+                    <select 
+                      name="status" 
+                      value={formData.status || 'Dirancang'} 
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800 text-sm"
+                    >
+                      <option value="Dirancang">Dirancang</option>
+                      <option value="Selesai">Selesai</option>
+                      <option value="Batal">Batal</option>
+                    </select>
+                  </div>
+                </div>
+
+                {!program && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 mt-2">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="isRecurring"
+                        checked={isRecurring}
+                        onChange={(e) => setIsRecurring(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <label htmlFor="isRecurring" className="ml-2 block text-sm font-bold text-slate-700 cursor-pointer">
+                        Program Berulang (Recurring)
+                      </label>
                     </div>
-                  )}
-                </div>
-              )}
+                    
+                    {isRecurring && (
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kekerapan</label>
+                           <select
+                             value={recurrencePattern}
+                             onChange={(e) => setRecurrencePattern(e.target.value)}
+                             className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800 text-sm"
+                           >
+                             <option value="daily">Harian</option>
+                             <option value="weekly">Mingguan</option>
+                             <option value="monthly">Bulanan</option>
+                           </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Tarikh Tamat <span className="text-red-500">*</span></label>
+                          <input
+                            type="date"
+                            required={isRecurring}
+                            value={recurrenceEndDate}
+                            onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                            className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* TAB 2: BUTIRAN LANJUT */}
+            {activeTab === 'butiran' && (
+              <div className="space-y-4 animate-in fade-in duration-200">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Zon <span className="text-red-500">*</span></label>
-                  <select 
-                    name="zone" 
-                    required
-                    value={formData.zone} 
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Lokasi</label>
+                  <input 
+                    type="text" 
+                    name="location" 
+                    value={formData.location} 
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800"
-                  >
-                    <option value="HQ">HQ</option>
-                    <option value="Zon Timur">Zon Timur</option>
-                    <option value="Zon Tengah">Zon Tengah</option>
-                    <option value="Zon Barat">Zon Barat</option>
-                  </select>
+                    placeholder="Cth: Masjid Sg Ular"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">PIC Program</label>
+                    <input 
+                      type="text" 
+                      name="pic_program" 
+                      value={formData.pic_program} 
+                      onChange={handleChange}
+                      placeholder="Nama pegawai / kumpulan"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kumpulan Sasar</label>
+                    <input 
+                      type="text" 
+                      name="participants" 
+                      value={formData.participants || ''} 
+                      onChange={handleChange}
+                      placeholder="Cth: Jemaah / Awam / 50 orang"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Jenis Aktiviti</label>
-                  <select 
-                    name="activityType" 
-                    value={formData.activityType || ''} 
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kos Program (RM)</label>
+                  <input 
+                    type="number" 
+                    name="program_cost" 
+                    min="0"
+                    step="0.01"
+                    value={formData.program_cost || ''} 
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800"
-                  >
-                    <option value="">Pilih Jenis Aktiviti</option>
-                    {(categories || []).map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                    placeholder="0.00"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Status Program</label>
-                  <select 
-                    name="status" 
-                    value={formData.status || 'Dirancang'} 
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Catatan Tambahan</label>
+                  <textarea 
+                    name="description" 
+                    rows={3}
+                    value={formData.description || ''} 
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800"
-                  >
-                    <option value="Dirancang">Dirancang</option>
-                    <option value="Selesai">Selesai</option>
-                    <option value="Batal">Batal</option>
-                  </select>
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all resize-none font-medium text-slate-800 text-sm"
+                    placeholder="Maklumat tambahan berkenaan program..."
+                  ></textarea>
                 </div>
               </div>
+            )}
 
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Lokasi</label>
-                <input 
-                  type="text" 
-                  name="location" 
-                  value={formData.location} 
-                  onChange={handleChange}
-                  placeholder="Cth: Masjid Sg Ular"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">PIC Program</label>
-                <input 
-                  type="text" 
-                  name="pic_program" 
-                  value={formData.pic_program} 
-                  onChange={handleChange}
-                  placeholder="Nama pegawai / kumpulan"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kumpulan Sasar / Peserta</label>
-                <input 
-                  type="text" 
-                  name="participants" 
-                  value={formData.participants || ''} 
-                  onChange={handleChange}
-                  placeholder="Cth: Jemaah / Awam / 50 orang"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                />
-              </div>
-
-              <div className="md:col-span-2 pt-4 mt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-slate-800">Maklumat Kutipan (Zakat / Wakaf)</h3>
-                  <button type="button" onClick={addCollection} className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg font-bold transition-colors">
+            {/* TAB 3: KUTIPAN */}
+            {activeTab === 'kutipan' && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Senarai Kutipan</h3>
+                    <p className="text-[10px] text-slate-500">Rekod kutipan zakat atau wakaf untuk program ini.</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={addCollection} 
+                    className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg font-bold transition-all shadow-xs shrink-0"
+                  >
                     + Tambah Kutipan
                   </button>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1">
                   {(formData.collections || []).map((coll, idx) => (
-                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative">
-                      <button type="button" onClick={() => removeCollection(idx)} className="absolute top-3 right-3 text-red-500 hover:bg-red-100 hover:text-red-700 p-1 rounded transition-colors" title="Padam Kutipan">
+                    <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200 relative animate-in slide-in-from-bottom-2 duration-150">
+                      <button 
+                        type="button" 
+                        onClick={() => removeCollection(idx)} 
+                        className="absolute top-2 right-2 text-red-500 hover:bg-red-50 p-1 rounded-lg transition-colors border border-transparent hover:border-red-100 animate-none" 
+                        title="Padam Kutipan"
+                      >
                         <XIcon className="w-4 h-4" />
                       </button>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-1 pr-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-1 pr-6 sm:pr-0">
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Jenis <span className="text-red-500">*</span></label>
-                          <select required value={coll.collection_type} onChange={(e) => updateCollection(idx, 'collection_type', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none">
+                          <select required value={coll.collection_type} onChange={(e) => updateCollection(idx, 'collection_type', e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none text-xs font-semibold text-slate-800">
                             <option value="Zakat">Zakat</option>
                             <option value="Wakaf">Wakaf</option>
                           </select>
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Amaun (RM) <span className="text-red-500">*</span></label>
-                          <input type="number" required min="0" step="0.01" value={coll.amount || ''} onChange={(e) => updateCollection(idx, 'amount', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="0.00" />
+                          <input type="number" required min="0" step="0.01" value={coll.amount !== undefined && coll.amount !== null ? coll.amount : ''} onChange={(e) => updateCollection(idx, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-semibold text-slate-800" placeholder="0.00" />
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Bil. Pembayar <span className="text-red-500">*</span></label>
-                          <input type="number" required min="1" step="1" value={coll.payers_count || ''} onChange={(e) => updateCollection(idx, 'payers_count', parseInt(e.target.value) || 0)} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="0" />
+                          <input type="number" required min="1" step="1" value={coll.payers_count !== undefined && coll.payers_count !== null ? coll.payers_count : ''} onChange={(e) => updateCollection(idx, 'payers_count', e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-semibold text-slate-800" placeholder="0" />
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Cara Bayar <span className="text-red-500">*</span></label>
-                          <select required value={coll.payment_type || ''} onChange={(e) => updateCollection(idx, 'payment_type', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none">
+                          <select required value={coll.payment_type || ''} onChange={(e) => updateCollection(idx, 'payment_type', e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none text-xs font-semibold text-slate-800">
                             <option value="">Pilih...</option>
                             <option value="Tunai">Tunai</option>
                             <option value="Online">Online / Transfer</option>
@@ -335,62 +486,63 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                     </div>
                   ))}
                   {(!formData.collections || formData.collections.length === 0) && (
-                    <div className="text-center py-6 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-slate-400 text-sm font-medium">
+                    <div className="text-center py-6 bg-slate-50 border border-slate-200 border-dashed rounded-xl text-slate-400 text-xs font-medium">
                       Tiada rekod kutipan. Tekan butang "+ Tambah Kutipan"
                     </div>
                   )}
                 </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-100">
-                  <div className="max-w-xs">
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kos Program (RM)</label>
-                    <input 
-                      type="number" 
-                      name="program_cost" 
-                      min="0"
-                      step="0.01"
-                      value={formData.program_cost || ''} 
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800"
-                    />
-                  </div>
-                </div>
               </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Catatan Tambahan</label>
-                <textarea 
-                  name="description" 
-                  rows={3}
-                  value={formData.description || ''} 
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all resize-none font-medium text-slate-800"
-                  placeholder="Maklumat tambahan berkenaan program..."
-                ></textarea>
-              </div>
-
-            </div>
+            )}
 
           </form>
         </div>
 
-        <div className="p-4 px-6 bg-slate-50 border-t border-slate-100 rounded-b-xl flex justify-end gap-3 shrink-0">
-          <button 
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-lg text-slate-600 font-semibold hover:bg-slate-200 transition-colors"
-          >
-            Batal
-          </button>
-          <button 
-            type="submit"
-            form="program-form"
-            className="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm transition-colors"
-          >
-            Simpan Program
-          </button>
+        {/* Footer Navigation Bar */}
+        <div className="p-3 px-4 sm:p-4 sm:px-6 bg-slate-50 border-t border-slate-100 rounded-b-xl flex justify-between items-center shrink-0">
+          <div>
+            <button 
+              type="button"
+              onClick={onClose}
+              className="text-xs sm:text-sm text-slate-500 hover:text-slate-800 font-semibold px-3 py-2 rounded-lg hover:bg-slate-200/50 transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+          
+          <div className="flex gap-2.5">
+            {activeTab !== 'asas' && (
+              <button 
+                type="button"
+                onClick={() => {
+                  if (activeTab === 'butiran') setActiveTab('asas');
+                  if (activeTab === 'kutipan') setActiveTab('butiran');
+                }}
+                className="px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-200 border border-slate-200 transition-colors text-xs sm:text-sm"
+              >
+                Kembali
+              </button>
+            )}
+            
+            {activeTab !== 'kutipan' ? (
+              <button 
+                type="button"
+                onClick={handleNext}
+                className="px-4 py-2 sm:px-5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs transition-colors text-xs sm:text-sm"
+              >
+                Seterusnya
+              </button>
+            ) : (
+              <button 
+                type="submit"
+                form="program-form"
+                className="px-4 py-2 sm:px-5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs transition-colors text-xs sm:text-sm"
+              >
+                Simpan Program
+              </button>
+            )}
+          </div>
         </div>
+
       </div>
     </div>
   );

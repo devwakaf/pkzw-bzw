@@ -12,6 +12,19 @@ import crypto from "crypto";
 
 dotenv.config();
 
+function getMalaysiaDateTimeString(): string {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const klTime = new Date(utc + 3600000 * 8); // Add 8 hours for Malaysia (GMT+8)
+  const y = klTime.getFullYear();
+  const m = String(klTime.getMonth() + 1).padStart(2, '0');
+  const d = String(klTime.getDate()).padStart(2, '0');
+  const h = String(klTime.getHours()).padStart(2, '0');
+  const mi = String(klTime.getMinutes()).padStart(2, '0');
+  const s = String(klTime.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d} ${h}:${mi}:${s}`;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.warn("WARNING: JWT_SECRET environment variable is missing. Using a fallback secret for development.");
@@ -118,6 +131,7 @@ async function startServer() {
             connectionLimit: 10,
             queueLimit: 0,
             dateStrings: true,
+            timezone: '+08:00',
           });
           console.log("MySQL Pool created on " + dbHost + ":" + dbPort);
           
@@ -654,8 +668,8 @@ async function startServer() {
 
       await executeDb(req, res, async (p) => {
         await p.query(
-          "INSERT INTO programs (id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [id, cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0]
+          "INSERT INTO programs (id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [id, cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, finalStatus, program_cost || 0, getMalaysiaDateTimeString()]
         );
         
         if (collections && Array.isArray(collections)) {
@@ -727,7 +741,7 @@ async function startServer() {
       }
 
       // Admin performs soft delete regardless of role (superadmin can hard delete from trash bin)
-      await executeDb(req, res, (p) => p.query("UPDATE programs SET is_deleted = 1, deleted_by = ?, deleted_at = CURRENT_TIMESTAMP WHERE id = ?", [userId, req.params.id]));
+      await executeDb(req, res, (p) => p.query("UPDATE programs SET is_deleted = 1, deleted_by = ?, deleted_at = ? WHERE id = ?", [userId, getMalaysiaDateTimeString(), req.params.id]));
 
       return res.json({ success: true });
     } catch (e: any) {
