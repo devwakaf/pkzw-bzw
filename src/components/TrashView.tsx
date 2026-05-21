@@ -129,7 +129,11 @@ export default function TrashView({ onRecover, onHardDelete }: TrashViewProps) {
                     <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800">
                         <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
-                        {format(parseISO(p.date), 'dd MMM yyyy', { locale: ms })}
+                        {p.date ? (() => {
+                             const [y, m, d] = p.date.split('T')[0].split('-');
+                             const dt = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+                             return format(dt, 'dd MMM yyyy', { locale: ms });
+                        })() : ''}
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top">

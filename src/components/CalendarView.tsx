@@ -676,7 +676,10 @@ export default function CalendarView({
                       Tarikh & Masa
                     </div>
                     <div className="text-xs font-semibold text-slate-700 truncate">
-                      {format(parseISO(viewingProgram.date), "dd/MM/yyyy")}{" "}
+                      {viewingProgram.date ? (() => {
+                        const [y, m, d] = viewingProgram.date.split('T')[0].split('-');
+                        return `${d}/${m}/${y}`;
+                      })() : ''}{" "}
                     </div>
                     <div className="text-[10px] font-medium text-slate-500">
                       {formatTime12(viewingProgram.time)}

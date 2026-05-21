@@ -151,7 +151,10 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
           const fmtBil = (num: number) => Number(num).toLocaleString('en-MY') + ' orang';
           
           return [
-            `${format(parseISO(p.date), 'dd/MM/yy')}\n${p.time || '-'}`,
+            `${p.date ? (() => {
+              const [y, m, d] = p.date.split('T')[0].split('-');
+              return `${d}/${m}/${y.substring(2)}`;
+            })() : ''}\n${p.time || '-'}`,
             p.title,
             `${p.location || '-'}\nPIC: ${p.pic_program || '-'}`,
             `Zakat: ${fmtBil(bilZakat)} | RM ${fmtAmt(zakat)}\nWakaf: ${fmtBil(bilWakaf)} | RM ${fmtAmt(wakaf)}\n--------------------------\nJumlah: ${fmtBil(ttlBil)} | RM ${fmtAmt(ttlKutipan)}`,
@@ -342,7 +345,10 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                         <tr key={program.id} className="group hover:bg-slate-50 transition-colors text-[11px] print:hover:bg-transparent text-slate-800 print:text-black">
                           <td className="px-3 py-3 align-top leading-tight print:border print:border-slate-400">
                             <div className="font-bold text-slate-800 print:text-black">
-                               {format(parseISO(program.date), 'dd/MM/yy')}
+                               {program.date ? (() => {
+                                  const [y, m, d] = program.date.split('T')[0].split('-');
+                                  return `${d}/${m}/${y.substring(2)}`;
+                               })() : ''}
                             </div>
                             <div className="text-slate-400 print:text-slate-600 font-medium text-[10px] mt-0.5">{program.time || ''}</div>
                           </td>
