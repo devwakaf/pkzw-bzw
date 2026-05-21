@@ -525,6 +525,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
             
             {activeTab !== 'kutipan' ? (
               <button 
+                key="btn-next"
                 type="button"
                 onClick={handleNext}
                 className="px-4 py-2 sm:px-5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs transition-colors text-xs sm:text-sm"
@@ -533,6 +534,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
               </button>
             ) : (
               <button 
+                key="btn-submit"
                 type="submit"
                 form="program-form"
                 className="px-4 py-2 sm:px-5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs transition-colors text-xs sm:text-sm"
