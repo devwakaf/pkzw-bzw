@@ -12,16 +12,37 @@ const getHeaders = () => {
 
 function parseDateString(dateVal: any): string {
   if (!dateVal) return '';
-  if (typeof dateVal === 'string') {
-    return dateVal.split('T')[0].split(' ')[0];
+  try {
+    let dt: Date;
+    if (dateVal instanceof Date) {
+      dt = dateVal;
+    } else {
+      const str = String(dateVal).trim();
+      // If exactly YYYY-MM-DD, parse as raw string to avoid browser parsing as UTC and shifting back
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        return str;
+      }
+      // If YYYY-MM-DD HH:MM:SS, extract date portion directly
+      if (/^\d{4}-\d{2}-\d{2}\s/.test(str)) {
+        return str.split(' ')[0];
+      }
+      dt = new Date(str);
+    }
+    
+    if (isNaN(dt.getTime())) {
+      return String(dateVal).split('T')[0].split(' ')[0];
+    }
+
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    return formatter.format(dt);
+  } catch (e) {
+    return String(dateVal).split('T')[0].split(' ')[0];
   }
-  if (dateVal instanceof Date) {
-    const y = dateVal.getFullYear();
-    const m = String(dateVal.getMonth() + 1).padStart(2, '0');
-    const d = String(dateVal.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-  return String(dateVal).split('T')[0].split(' ')[0];
 }
 
 export const api = {
