@@ -13,18 +13,15 @@ const getHeaders = () => {
 function parseDateString(dateVal: any): string {
   if (!dateVal) return '';
   if (typeof dateVal === 'string') {
-    if (dateVal.includes('T') || dateVal.includes('Z')) {
-      const d = new Date(dateVal);
-      if (!isNaN(d.getTime())) {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const r = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${r}`;
-      }
-    }
-    return dateVal.split('T')[0];
+    return dateVal.split('T')[0].split(' ')[0];
   }
-  return dateVal;
+  if (dateVal instanceof Date) {
+    const y = dateVal.getFullYear();
+    const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+    const d = String(dateVal.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(dateVal).split('T')[0].split(' ')[0];
 }
 
 export const api = {
@@ -42,9 +39,13 @@ export const api = {
     return res.json();
   },
   getMe: async () => {
-    const res = await fetch(`${API_BASE}/auth/me`, { headers: getHeaders() });
-    if (!res.ok) throw new Error('Not authenticated');
-    return res.json();
+    try {
+      const res = await fetch(`${API_BASE}/auth/me`, { headers: getHeaders() });
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
   },
 
   // Users Management (Superadmin)

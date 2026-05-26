@@ -77,7 +77,9 @@ export default function CalendarView({
 
   const currentBzwSetting = bzwSettings?.find((s) => s.year === selectedYear);
   const getLocalDate = (dateStr: string) => {
-    const [y, m, d] = dateStr.split("-").map(Number);
+    if (!dateStr) return new Date();
+    const cleaned = dateStr.split("T")[0].split(" ")[0];
+    const [y, m, d] = cleaned.split("-").map(Number);
     return new Date(y, m - 1, d); // Creates local midnight Date
   };
   const [jakimMap, setJakimMap] = useState<Record<string, string>>({});
@@ -179,9 +181,10 @@ export default function CalendarView({
   // When year changes, jump to start date
   React.useEffect(() => {
     if (currentBzwSetting) {
-      const [y, m, d] = currentBzwSetting.start_date.split("-").map(Number);
-      const start = new Date(y, m - 1, d);
-      setCurrentDate(new Date(start.getFullYear(), start.getMonth(), 1));
+      const start = getLocalDate(currentBzwSetting.start_date);
+      if (!isNaN(start.getTime())) {
+        setCurrentDate(new Date(start.getFullYear(), start.getMonth(), 1));
+      }
       setSelectedDayObj(null);
     }
   }, [selectedYear, currentBzwSetting]);
@@ -228,9 +231,11 @@ export default function CalendarView({
   const programsByDate = days.reduce(
     (acc, day) => {
       const formattedDate = format(day, "yyyy-MM-dd");
-      acc[formattedDate] = filteredPrograms.filter(
-        (p) => p.date === formattedDate,
-      );
+      acc[formattedDate] = filteredPrograms.filter((p) => {
+        if (!p.date) return false;
+        const pDateClean = p.date.split("T")[0].split(" ")[0];
+        return pDateClean === formattedDate;
+      });
       return acc;
     },
     {} as Record<string, Program[]>,
@@ -716,7 +721,7 @@ export default function CalendarView({
                         </div>
                         <div className="text-xs font-semibold text-slate-700 truncate">
                           {viewingProgram.date ? (() => {
-                            const [y, m, d] = viewingProgram.date.split('T')[0].split('-');
+                            const [y, m, d] = viewingProgram.date.split('T')[0].split(' ')[0].split('-');
                             return `${d}/${m}/${y}`;
                           })() : ''}{" "}
                         </div>

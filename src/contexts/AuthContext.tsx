@@ -34,9 +34,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (token) {
         try {
           const userData = await api.getMe();
-          setUser(userData);
+          if (userData) {
+            setUser(userData);
+          } else {
+            localStorage.removeItem('bzw_token');
+          }
         } catch (error) {
-          console.error("Auth check failed:", error);
           localStorage.removeItem('bzw_token');
         }
       }
