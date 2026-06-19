@@ -3,6 +3,8 @@ export interface BzwSetting {
   start_date: string; // YYYY-MM-DD
   end_date: string; // YYYY-MM-DD
   hijri_year?: string;
+  zakat_target?: number;
+  wakaf_target?: number;
 }
 
 export type Zone = 'HQ' | 'Zon Timur' | 'Zon Tengah' | 'Zon Barat';
@@ -16,9 +18,9 @@ export interface ProgramCollection {
   id?: string;
   program_id?: string;
   collection_type: 'Zakat' | 'Wakaf';
-  amount: number;
-  payers_count: number;
-  payment_type: string;
+  amount?: number;
+  payers_count?: number;
+  payment_type?: string;
 }
 
 export interface Program {
@@ -28,6 +30,7 @@ export interface Program {
   time: string; // HH:MM
   location: string;
   zone: Zone;
+  sector?: string; // 'Zakat' | 'Wakaf'
   activityType: string;
   pic_program: string;
   participants: string;

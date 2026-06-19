@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Program, Zone, ActivityCategory } from '../types';
 import { XIcon } from 'lucide-react';
+import { NumericFormat } from 'react-number-format';
 
 interface ProgramFormProps {
   program?: Program | null;
@@ -17,6 +18,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
     time: '',
     location: '',
     zone: 'HQ',
+    sector: '',
     activityType: '',
     pic_program: '',
     participants: '',
@@ -240,7 +242,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Tarikh <span className="text-red-500">*</span></label>
                     <input 
@@ -265,8 +267,8 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="col-span-2 sm:col-span-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Jenis Aktiviti</label>
                     <select 
                       name="activityType" 
@@ -294,6 +296,20 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                       <option value="Zon Timur">Zon Timur</option>
                       <option value="Zon Tengah">Zon Tengah</option>
                       <option value="Zon Barat">Zon Barat</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Sektor Program</label>
+                    <select 
+                      name="sector" 
+                      value={formData.sector || ''} 
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white font-medium text-slate-800 text-sm"
+                    >
+                      <option value="">Pilih Sektor...</option>
+                      <option value="Zakat">Zakat</option>
+                      <option value="Wakaf">Wakaf</option>
                     </select>
                   </div>
 
@@ -328,7 +344,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                     </div>
                     
                     {isRecurring && (
-                      <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                         <div>
                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kekerapan</label>
                            <select
@@ -401,13 +417,13 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kos Program (RM)</label>
-                  <input 
-                    type="number" 
-                    name="program_cost" 
-                    min="0"
-                    step="0.01"
-                    value={formData.program_cost || ''} 
-                    onChange={handleChange}
+                  <NumericFormat 
+                    value={formData.program_cost !== undefined ? formData.program_cost : ''} 
+                    onValueChange={(values) => setFormData({...formData, program_cost: values.floatValue !== undefined ? values.floatValue : ''})}
+                    thousandSeparator={true}
+                    decimalScale={2}
+                    fixedDecimalScale={true}
+                    allowNegative={false}
                     placeholder="0.00"
                     className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-medium text-slate-800 text-sm"
                   />
@@ -464,16 +480,25 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Amaun (RM) <span className="text-red-500">*</span></label>
-                          <input type="number" required min="0" step="0.01" value={coll.amount !== undefined && coll.amount !== null ? coll.amount : ''} onChange={(e) => updateCollection(idx, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-semibold text-slate-800" placeholder="0.00" />
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Amaun (RM)</label>
+                          <NumericFormat 
+                            value={coll.amount !== undefined && coll.amount !== null ? coll.amount : ''} 
+                            onValueChange={(values) => updateCollection(idx, 'amount', values.floatValue !== undefined ? values.floatValue : '')}
+                            thousandSeparator={true}
+                            decimalScale={2}
+                            fixedDecimalScale={true}
+                            allowNegative={false}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-semibold text-slate-800" 
+                            placeholder="0.00" 
+                          />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Bil. Pembayar <span className="text-red-500">*</span></label>
-                          <input type="number" required min="1" step="1" value={coll.payers_count !== undefined && coll.payers_count !== null ? coll.payers_count : ''} onChange={(e) => updateCollection(idx, 'payers_count', e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-semibold text-slate-800" placeholder="0" />
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Bil. Pembayar</label>
+                          <input type="number" min="0" step="1" value={coll.payers_count !== undefined && coll.payers_count !== null ? coll.payers_count : ''} onChange={(e) => updateCollection(idx, 'payers_count', e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-xs font-semibold text-slate-800" placeholder="0" />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Cara Bayar <span className="text-red-500">*</span></label>
-                          <select required value={coll.payment_type || ''} onChange={(e) => updateCollection(idx, 'payment_type', e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none text-xs font-semibold text-slate-800">
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Cara Bayar</label>
+                          <select value={coll.payment_type || ''} onChange={(e) => updateCollection(idx, 'payment_type', e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none text-xs font-semibold text-slate-800">
                             <option value="">Pilih...</option>
                             <option value="Tunai">Tunai</option>
                             <option value="Online">Online / Transfer</option>

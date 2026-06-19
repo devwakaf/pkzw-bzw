@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "start": "node server.ts"
+    "start": "node dist/server.cjs"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -20,6 +20,8 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
@@ -28,6 +30,7 @@
     "mysql2": "^3.22.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-number-format": "^5.4.5",
     "recharts": "^3.8.1",
     "ssh2": "^1.17.0",
     "uuid": "^14.0.0",
@@ -42,6 +45,7 @@
     "@types/ssh2": "^1.15.5",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.21",
+    "esbuild": "^0.28.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

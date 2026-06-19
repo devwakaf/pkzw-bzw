@@ -9,6 +9,8 @@ import net from "net";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 dotenv.config();
 
@@ -35,8 +37,36 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Trust proxy since we are running behind a reverse proxy (Fixes rate limiter warning)
+  app.set('trust proxy', 1);
+
+  // Security Headers
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.disable('x-powered-by');
+
   app.use(cors());
   app.use(express.json());
+
+  // Rate Limiting Config
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 500, // Limit each IP to 500 requests per `window`
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+    message: { error: 'Terlalu banyak permintaan, sila cuba lagi nanti.' }
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    limit: 50, // Limit login attempts
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
+    message: { error: 'Terlalu banyak percubaan log masuk, sila cuba lagi nanti.' }
+  });
+
+  app.use("/api/", apiLimiter);
 
   // MySQL Connection Pool
   let pool: mysql.Pool | null = null;
@@ -164,7 +194,9 @@ async function startServer() {
                 year INT PRIMARY KEY,
                 start_date DATE,
                 end_date DATE,
-                hijri_year VARCHAR(255)
+                hijri_year VARCHAR(255),
+                zakat_target DECIMAL(15,2) DEFAULT 0,
+                wakaf_target DECIMAL(15,2) DEFAULT 0
               )
             `);
             try {
@@ -172,6 +204,12 @@ async function startServer() {
               const columnNames = columns.map((c: any) => c.Field);
               if (!columnNames.includes('hijri_year')) {
                 await pool.query("ALTER TABLE bzw_settings ADD COLUMN hijri_year VARCHAR(255)");
+              }
+              if (!columnNames.includes('zakat_target')) {
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN zakat_target DECIMAL(15,2) DEFAULT 0");
+              }
+              if (!columnNames.includes('wakaf_target')) {
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN wakaf_target DECIMAL(15,2) DEFAULT 0");
               }
             } catch(e) {}
 
@@ -184,6 +222,7 @@ async function startServer() {
                 time VARCHAR(20),
                 location TEXT,
                 zone VARCHAR(50),
+                sector VARCHAR(50),
                 activityType VARCHAR(255),
                 pic_program TEXT,
                 participants TEXT,
@@ -219,6 +258,10 @@ async function startServer() {
               }
               
               // New Reporting columns
+              if (!columnNames.includes('sector')) {
+                await pool.query("ALTER TABLE programs ADD COLUMN sector VARCHAR(50)");
+                console.log("Migration: Added sector column to programs");
+              }
               if (!columnNames.includes('zakat_collection')) {
                 await pool.query("ALTER TABLE programs ADD COLUMN zakat_collection DECIMAL(15,2) DEFAULT 0");
               }
@@ -287,7 +330,11 @@ async function startServer() {
         sshTunnelActive = false;
       }
       if (!res.headersSent) {
-        res.status(500).json({ error: `Ralat Pangkalan Data: ${error.message}. (Sila semak konfigurasi DB/SSH)` });
+        if (process.env.NODE_ENV === "production") {
+          res.status(500).json({ error: "Ralat Pangkalan Data. Sila cuba sebentar lagi." });
+        } else {
+          res.status(500).json({ error: `Ralat Pangkalan Data: ${error.message}. (Sila semak konfigurasi DB/SSH)` });
+        }
       }
       throw error; // keep it for the outer catch if any
     }
@@ -334,6 +381,7 @@ async function startServer() {
             time VARCHAR(20),
             location TEXT,
             zone VARCHAR(50),
+            sector VARCHAR(50),
             activityType VARCHAR(255),
             pic_program TEXT,
             participants TEXT,
@@ -383,7 +431,9 @@ async function startServer() {
             year INT PRIMARY KEY,
             start_date DATE,
             end_date DATE,
-            hijri_year VARCHAR(255)
+            hijri_year VARCHAR(255),
+            zakat_target DECIMAL(15,2) DEFAULT 0,
+            wakaf_target DECIMAL(15,2) DEFAULT 0
           )
         `);
         try {
@@ -391,6 +441,12 @@ async function startServer() {
           const columnNames = columns.map((c: any) => c.Field);
           if (!columnNames.includes('hijri_year')) {
             await p.query("ALTER TABLE bzw_settings ADD COLUMN hijri_year VARCHAR(255)");
+          }
+          if (!columnNames.includes('zakat_target')) {
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN zakat_target DECIMAL(15,2) DEFAULT 0");
+          }
+          if (!columnNames.includes('wakaf_target')) {
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN wakaf_target DECIMAL(15,2) DEFAULT 0");
           }
         } catch(e) {}
 
@@ -424,11 +480,11 @@ async function startServer() {
   // Global error logger for diagnostics
   const globalErrors: any[] = [];
 
-  app.get("/api/debug-errors", (req, res) => {
+  app.get("/api/debug-errors", authenticateToken, requireSuperAdmin, (req, res) => {
     res.json(globalErrors);
   });
 
-  app.get("/api/debug-db-status", async (req, res) => {
+  app.get("/api/debug-db-status", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
       const result: any = {};
       await executeDb(req, res, async (p) => {
@@ -465,7 +521,7 @@ async function startServer() {
   // --- Auth Routes ---
   // REMOVED: /api/auth/debug for security. Use controlled admin pages instead.
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const { username, password } = req.body;
       console.log("Login attempt for:", username);
@@ -623,7 +679,7 @@ async function startServer() {
   // BZW Settings
   app.get("/api/bzw-settings", async (req, res) => {
     try {
-      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year FROM bzw_settings ORDER BY year ASC"));
+      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year, zakat_target, wakaf_target FROM bzw_settings ORDER BY year ASC"));
       res.json(rows);
     } catch (e: any) {
       console.error("Error fetching bzw_settings:", e);
@@ -633,12 +689,12 @@ async function startServer() {
 
   app.post("/api/bzw-settings", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
-      const { year, start_date, end_date, hijri_year } = req.body;
+      const { year, start_date, end_date, hijri_year, zakat_target, wakaf_target } = req.body;
       const [existing]: any = await executeDb(req, res, (p) => p.query("SELECT year FROM bzw_settings WHERE year = ?", [year]));
       if (existing && existing.length > 0) {
-        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ? WHERE year = ?", [start_date, end_date, hijri_year || null, year]));
+        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ?, zakat_target = ?, wakaf_target = ? WHERE year = ?", [start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, year]));
       } else {
-        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year) VALUES (?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null]));
+        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year, zakat_target, wakaf_target) VALUES (?, ?, ?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0]));
       }
       res.json({ success: true });
     } catch (e: any) {
@@ -699,7 +755,7 @@ async function startServer() {
 
   app.post("/api/programs", authenticateToken, async (req, res) => {
     try {
-      const { id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, collections } = req.body;
+      const { id, title, date, time, location, zone, sector, activityType, pic_program, participants, description, status, program_cost, collections } = req.body;
       const finalStatus = status || 'Dirancang';
       
       // Basic sanitization
@@ -712,7 +768,7 @@ async function startServer() {
           await conn.beginTransaction();
 
           await conn.query(
-            "INSERT INTO programs (id, title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO programs (id, title, date, time, location, zone, sector, activityType, pic_program, participants, description, status, program_cost, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
               id,
               cleanTitle,
@@ -720,6 +776,7 @@ async function startServer() {
               time,
               location,
               zone,
+              sector,
               activityType,
               pic_program,
               participants,
@@ -747,7 +804,7 @@ async function startServer() {
           conn.release();
         }
       });
-      res.json({ id, title: cleanTitle, date, time, location, zone, activityType, pic_program, participants, description, status: finalStatus, program_cost, collections });
+      res.json({ id, title: cleanTitle, date, time, location, zone, sector, activityType, pic_program, participants, description, status: finalStatus, program_cost, collections });
     } catch (e: any) {
       console.error("Error creating program:", e);
       globalErrors.push({ timestamp: new Date().toISOString(), path: "POST /api/programs", error: e.message || String(e), stack: e.stack });
@@ -757,7 +814,7 @@ async function startServer() {
 
   app.put("/api/programs/:id", authenticateToken, async (req, res) => {
     try {
-      const { title, date, time, location, zone, activityType, pic_program, participants, description, status, program_cost, collections } = req.body;
+      const { title, date, time, location, zone, sector, activityType, pic_program, participants, description, status, program_cost, collections } = req.body;
       const finalStatus = status || 'Dirancang';
 
       await executeDb(req, res, async (p) => {
@@ -766,13 +823,14 @@ async function startServer() {
           await conn.beginTransaction();
 
           await conn.query(
-            "UPDATE programs SET title = ?, date = ?, time = ?, location = ?, zone = ?, activityType = ?, pic_program = ?, participants = ?, description = ?, status = ?, program_cost = ? WHERE id = ?",
+            "UPDATE programs SET title = ?, date = ?, time = ?, location = ?, zone = ?, sector = ?, activityType = ?, pic_program = ?, participants = ?, description = ?, status = ?, program_cost = ? WHERE id = ?",
             [
               title,
               date,
               time,
               location,
               zone,
+              sector,
               activityType,
               pic_program,
               participants,
@@ -841,7 +899,7 @@ async function startServer() {
     } catch (e: any) {
       console.error("Deletion error:", e);
       if (!res.headersSent) {
-        res.status(500).json({ error: "Ralat dalaman pelayan semasa memadam: " + e.message });
+        res.status(500).json({ error: "Ralat dalaman pelayan semasa memadam" });
       }
     }
   });

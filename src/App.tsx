@@ -368,7 +368,7 @@ function App() {
 
         <div className="max-w-[1600px] mx-auto">
           {activeTab === 'dashboard' ? (
-            <Dashboard programs={programs} />
+            <Dashboard programs={programs} bzwSettings={bzwSettings} />
           ) : activeTab === 'calendar' ? (
             <CalendarView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} />
           ) : activeTab === 'reports' ? (
@@ -380,7 +380,7 @@ function App() {
           ) : activeTab === 'settings' && user ? (
             <SettingsView onSetupDb={handleSetupDb} bzwSettings={bzwSettings} refreshSettings={fetchData} />
           ) : (
-            <Dashboard programs={programs} />
+            <Dashboard programs={programs} bzwSettings={bzwSettings} />
           )}
         </div>
       </main>

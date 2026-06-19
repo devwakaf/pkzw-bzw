@@ -1,5 +1,7 @@
-import React, { useMemo } from "react";
-import { Program } from "../types";
+import React, { useMemo, useState } from "react";
+import { Program, BzwSetting } from "../types";
+import { format, parseISO, isToday, isBefore, isAfter, startOfDay } from "date-fns";
+import { ms } from "date-fns/locale";
 import {
   BarChart,
   Bar,
@@ -21,13 +23,23 @@ import {
   XCircleIcon,
   WalletIcon,
   HandHeartIcon,
+  TargetIcon,
+  CalendarIcon,
+  MapPinIcon,
+  LayoutListIcon,
+  TrophyIcon
 } from "lucide-react";
 
 interface DashboardProps {
   programs: Program[];
+  bzwSettings?: BzwSetting[];
 }
 
-export default function Dashboard({ programs }: DashboardProps) {
+type ProgramTab = 'Semua' | 'Akan Datang' | 'Sedang Berlangsung' | 'Selesai' | 'Batal';
+
+export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
+  const [programTab, setProgramTab] = useState<ProgramTab>('Semua');
+
   const stats = useMemo(() => {
     const total = programs.length;
     const completed = programs.filter((p) => p.status === "Selesai").length;
@@ -120,6 +132,22 @@ export default function Dashboard({ programs }: DashboardProps) {
       value,
     }));
 
+    let zakatTargetSum = 0;
+    let wakafTargetSum = 0;
+    if (bzwSettings) {
+      bzwSettings.forEach(s => {
+        zakatTargetSum += Number(s.zakat_target || 0);
+        wakafTargetSum += Number(s.wakaf_target || 0);
+      });
+    }
+
+    const sortedPrograms = [...programs].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      // sort descending
+      return dateB - dateA; 
+    });
+
     return {
       total,
       completed,
@@ -129,10 +157,13 @@ export default function Dashboard({ programs }: DashboardProps) {
       activityData,
       zakatSum,
       wakafSum,
+      zakatTargetSum,
+      wakafTargetSum,
       collectionDistribution,
       zoneCollectionData,
+      sortedPrograms,
     };
-  }, [programs]);
+  }, [programs, bzwSettings]);
 
   const zoneColors: Record<string, string> = {
     HQ: "#1e293b", // slate-800
@@ -153,85 +184,141 @@ export default function Dashboard({ programs }: DashboardProps) {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-          <div className="bg-blue-50 text-blue-600 p-3 rounded-lg">
-            <ActivityIcon className="w-6 h-6" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="bg-blue-50 text-blue-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <ActivityIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-tighter sm:tracking-tight truncate">
               Jumlah Program
             </p>
-            <p className="text-xl font-bold text-slate-800">{stats.total}</p>
+            <p className="text-lg sm:text-xl font-bold text-slate-800">{stats.total}</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-          <div className="bg-amber-50 text-amber-600 p-3 rounded-lg">
-            <ClockIcon className="w-6 h-6" />
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="bg-amber-50 text-amber-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-tighter sm:tracking-tight truncate">
               Dirancang
             </p>
-            <p className="text-xl font-bold text-slate-800">{stats.planned}</p>
+            <p className="text-lg sm:text-xl font-bold text-slate-800">{stats.planned}</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-          <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg">
-            <CheckCircle2Icon className="w-6 h-6" />
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="bg-emerald-50 text-emerald-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <CheckCircle2Icon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-tighter sm:tracking-tight truncate">
               Selesai
             </p>
-            <p className="text-xl font-bold text-slate-800">
+            <p className="text-lg sm:text-xl font-bold text-slate-800">
               {stats.completed}
             </p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg">
-            <XCircleIcon className="w-6 h-6" />
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
+          <div className="bg-red-50 text-red-600 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <XCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-tighter sm:tracking-tight truncate">
               Batal
             </p>
-            <p className="text-xl font-bold text-slate-800">
+            <p className="text-lg sm:text-xl font-bold text-slate-800">
               {stats.cancelled}
             </p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-          <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg">
-            <WalletIcon className="w-6 h-6" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-5 flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <div className="bg-emerald-100 text-emerald-600 p-3 rounded-lg shadow-sm">
+              <WalletIcon className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-emerald-600/80 uppercase tracking-tight">
+                Kutipan Zakat
+              </p>
+              <div className="flex flex-col gap-0.5 mt-1">
+                <p className="text-xl font-bold text-emerald-900 leading-none">
+                  <span className="text-sm font-medium mr-1 text-emerald-700">Semasa:</span>
+                  RM {stats.zakatSum.toLocaleString("en-MY", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <div className="flex justify-between items-end">
+                  <p className="text-sm font-bold text-emerald-800/60 flex items-center mt-1">
+                    <TargetIcon className="w-3 h-3 mr-1" />
+                    <span className="font-medium mr-1">Target:</span>
+                    RM {stats.zakatTargetSum.toLocaleString("en-MY", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                  {stats.zakatTargetSum > 0 && (
+                    <p className="text-2xl font-bold text-emerald-700">
+                      {Math.round((stats.zakatSum / stats.zakatTargetSum) * 100)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">
-              Kutipan Zakat (RM)
-            </p>
-            <p className="text-xl font-bold text-slate-800">
-              {stats.zakatSum.toLocaleString("en-MY", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </p>
+          <div className="w-full bg-emerald-200/50 rounded-full h-2.5 mt-1 overflow-hidden">
+            <div 
+              className="bg-emerald-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+              style={{ width: `${Math.min((stats.zakatSum / Math.max(stats.zakatTargetSum, 1)) * 100, 100)}%` }}
+            ></div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center gap-4">
-          <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg">
-            <HandHeartIcon className="w-6 h-6" />
+
+        <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-200 p-5 flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-100 text-purple-600 p-3 rounded-lg shadow-sm">
+              <HandHeartIcon className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-purple-600/80 uppercase tracking-tight">
+                Kutipan Wakaf
+              </p>
+              <div className="flex flex-col gap-0.5 mt-1">
+                <p className="text-xl font-bold text-purple-900 leading-none">
+                  <span className="text-sm font-medium mr-1 text-purple-700">Semasa:</span>
+                  RM {stats.wakafSum.toLocaleString("en-MY", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <div className="flex justify-between items-end">
+                  <p className="text-sm font-bold text-purple-800/60 flex items-center mt-1">
+                    <TargetIcon className="w-3 h-3 mr-1" />
+                    <span className="font-medium mr-1">Target:</span>
+                    RM {stats.wakafTargetSum.toLocaleString("en-MY", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                  {stats.wakafTargetSum > 0 && (
+                    <p className="text-2xl font-bold text-purple-700">
+                      {Math.round((stats.wakafSum / stats.wakafTargetSum) * 100)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">
-              Kutipan Wakaf (RM)
-            </p>
-            <p className="text-xl font-bold text-slate-800">
-              {stats.wakafSum.toLocaleString("en-MY", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </p>
+          <div className="w-full bg-purple-200/50 rounded-full h-2.5 mt-1 overflow-hidden">
+            <div 
+              className="bg-purple-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+              style={{ width: `${Math.min((stats.wakafSum / Math.max(stats.wakafTargetSum, 1)) * 100, 100)}%` }}
+            ></div>
           </div>
         </div>
       </div>
@@ -293,19 +380,19 @@ export default function Dashboard({ programs }: DashboardProps) {
         </div>
 
         {/* Activity Type Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[350px] flex flex-col">
-          <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col">
+          <h3 className="text-base font-bold text-slate-800 mb-2 sm:mb-6 flex items-center gap-2">
             <ActivityIcon className="w-5 h-5 text-emerald-600" /> Pecahan Jenis
             Aktiviti
           </h3>
           {stats.activityData.length > 0 ? (
-            <div className="flex-1 min-h-[300px]">
+            <div className="flex-1 min-h-[350px] sm:min-h-[300px]">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={stats.activityData}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={60}
                     outerRadius={100}
                     paddingAngle={2}
@@ -327,8 +414,8 @@ export default function Dashboard({ programs }: DashboardProps) {
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={36}
                     iconType="circle"
+                    wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -403,19 +490,19 @@ export default function Dashboard({ programs }: DashboardProps) {
         </div>
 
         {/* Collection Distribution Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[350px] flex flex-col">
-          <h3 className="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col">
+          <h3 className="text-base font-bold text-slate-800 mb-2 sm:mb-6 flex items-center gap-2">
             <WalletIcon className="w-5 h-5 text-emerald-600" /> Pecahan Kutipan
             Mengikut Aktiviti
           </h3>
           {stats.collectionDistribution.length > 0 ? (
-            <div className="flex-1 min-h-[300px]">
+            <div className="flex-1 min-h-[350px] sm:min-h-[300px]">
               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={stats.collectionDistribution}
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={60}
                     outerRadius={100}
                     paddingAngle={2}
@@ -441,8 +528,8 @@ export default function Dashboard({ programs }: DashboardProps) {
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={36}
                     iconType="circle"
+                    wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -452,6 +539,88 @@ export default function Dashboard({ programs }: DashboardProps) {
               Tiada kutipan direkodkan
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Senarai Program Terkini */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col mt-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-emerald-600" /> Senarai Program Terkini
+          </h3>
+          <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto no-scrollbar">
+            {['Semua', 'Akan Datang', 'Sedang Berlangsung', 'Selesai', 'Batal'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setProgramTab(tab as ProgramTab)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap transition-colors ${
+                  programTab === tab
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1 select-none">
+          {(() => {
+            const displayPrograms = stats.sortedPrograms.map(prog => {
+              const progDate = parseISO(prog.date);
+              const today = startOfDay(new Date());
+              const progDay = startOfDay(progDate);
+              const past = isBefore(progDay, today);
+              const current = isToday(progDate);
+              
+              let visualStatus = 'Akan Datang';
+              let statusClasses = 'bg-blue-50 text-blue-700 border-blue-200';
+              
+              if (prog.status === 'Batal') {
+                visualStatus = 'Batal';
+                statusClasses = 'bg-red-50 text-red-700 border-red-200';
+              } else if (current) {
+                visualStatus = 'Sedang Berlangsung';
+                statusClasses = 'bg-amber-50 text-amber-700 border-amber-200';
+              } else if (past) {
+                visualStatus = 'Selesai';
+                statusClasses = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+              }
+              
+              return { ...prog, visualStatus, statusClasses, progDate };
+            }).filter(prog => {
+              if (programTab === 'Semua') return true;
+              return prog.visualStatus === programTab;
+            });
+
+            if (displayPrograms.length === 0) return <div className="text-center text-slate-400 text-sm py-8">Tiada program direkodkan untuk kategori ini.</div>;
+
+            return displayPrograms.map((prog, idx) => (
+              <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors gap-3">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-800 text-sm truncate">{prog.title}</h4>
+                    <span className={`inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border ${prog.statusClasses}`}>
+                      {prog.visualStatus}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-1">
+                      <ClockIcon className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-medium">{format(prog.progDate, "dd MMM yyyy", { locale: ms })} • {prog.time}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <MapPinIcon className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-medium truncate max-w-[150px]">{prog.location || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">{prog.zone}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ));
+          })()}
         </div>
       </div>
     </div>

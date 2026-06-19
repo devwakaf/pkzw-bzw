@@ -360,8 +360,20 @@ export default function CalendarView({
                             {p.location || "-"}
                           </span>
                         </div>
-                        <div className="text-[8px] sm:text-[9px] font-bold tracking-wider uppercase text-slate-400 mt-0.5 w-full">
-                          {p.zone} {p.activityType ? `• ${p.activityType}` : ""}
+                        <div className="flex flex-wrap items-center gap-1 text-[8px] sm:text-[9px] font-bold tracking-wider uppercase mt-0.5 w-full">
+                          <span className="text-slate-400">{p.zone}</span>
+                          {p.sector && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className={p.sector === "Zakat" ? "text-blue-500" : p.sector === "Wakaf" ? "text-emerald-500" : "text-slate-500"}>{p.sector}</span>
+                            </>
+                          )}
+                          {p.activityType && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-slate-400">{p.activityType}</span>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -754,6 +766,16 @@ export default function CalendarView({
                         </div>
                         <div className="font-semibold text-slate-700 text-xs sm:text-sm">
                           {viewingProgram.activityType}
+                        </div>
+                      </div>
+                    )}
+                    {viewingProgram.sector && (
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+                          Sektor Program
+                        </div>
+                        <div className="font-semibold text-slate-700 text-xs sm:text-sm">
+                          {viewingProgram.sector}
                         </div>
                       </div>
                     )}

@@ -17,6 +17,7 @@ interface ReportViewProps {
 export default function ReportView({ programs, user, onEdit, onDelete, bzwSettings }: ReportViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [zoneFilter, setZoneFilter] = useState<Zone | 'All'>('All');
+  const [sectorFilter, setSectorFilter] = useState<string>('All');
   
   const availableYears = bzwSettings && bzwSettings.length > 0 
     ? [...bzwSettings.map(s => s.year)].sort((a,b) => b - a) 
@@ -29,6 +30,7 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
   const filteredPrograms = useMemo(() => {
     return programs
       .filter(p => zoneFilter === 'All' || p.zone === zoneFilter)
+      .filter(p => sectorFilter === 'All' || p.sector === sectorFilter)
       .filter(p => {
         if (selectedYear === 'Semua') return true;
         const [y] = p.date.split('-');
@@ -39,7 +41,7 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
         p.location?.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [programs, searchTerm, zoneFilter, selectedYear, bzwSettings]);
+  }, [programs, searchTerm, zoneFilter, sectorFilter, selectedYear, bzwSettings]);
 
   const calculateProgramStats = (p: Program) => {
     const zakat = (p.collections || []).filter(c => c.collection_type === 'Zakat').reduce((sum, c) => sum + Number(c.amount || 0), 0);
@@ -155,7 +157,7 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
               const [y, m, d] = p.date.split('T')[0].split('-');
               return `${d}/${m}/${y.substring(2)}`;
             })() : ''}\n${p.time || '-'}`,
-            p.title,
+            `${p.title}${p.activityType ? `\nJenis: ${p.activityType}` : ''}${p.sector ? `\nSektor: ${p.sector}` : ''}`,
             `${p.location || '-'}\nPIC: ${p.pic_program || '-'}`,
             `Zakat: ${fmtBil(bilZakat)} | RM ${fmtAmt(zakat)}\nWakaf: ${fmtBil(bilWakaf)} | RM ${fmtAmt(wakaf)}\n--------------------------\nJumlah: ${fmtBil(ttlBil)} | RM ${fmtAmt(ttlKutipan)}`,
             p.status || 'Dirancang'
@@ -239,6 +241,19 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                 <option value="Zon Timur">Zon Timur</option>
                 <option value="Zon Tengah">Zon Tengah</option>
                 <option value="Zon Barat">Zon Barat</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <FilterIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <select 
+                value={sectorFilter}
+                onChange={(e) => setSectorFilter(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-slate-700 appearance-none"
+              >
+                <option value="All">Semua Sektor</option>
+                <option value="Zakat">Zakat</option>
+                <option value="Wakaf">Wakaf</option>
               </select>
             </div>
 
@@ -356,9 +371,11 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
                             <div className="font-bold text-slate-800 print:text-black leading-tight">
                               {program.title}
                             </div>
-                            {program.activityType && (
-                              <div className="mt-0.5 text-[9px] text-emerald-600 print:text-emerald-800 font-bold uppercase tracking-tight">
-                                {program.activityType}
+                            {(program.activityType || program.sector) && (
+                              <div className="mt-0.5 flex flex-wrap gap-1 items-center text-[9px] font-bold uppercase tracking-tight">
+                                {program.activityType && <span className="text-emerald-600 print:text-emerald-800">{program.activityType}</span>}
+                                {program.activityType && program.sector && <span className="text-slate-300 print:text-slate-400">|</span>}
+                                {program.sector && <span className="text-blue-600 print:text-blue-800">{program.sector}</span>}
                               </div>
                             )}
                             {program.description && (
