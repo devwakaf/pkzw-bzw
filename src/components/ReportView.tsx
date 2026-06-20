@@ -3,8 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { ms } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Program, Zone, BzwSetting } from '../types';
-import { PrinterIcon, SearchIcon, FilterIcon, FileTextIcon, TrashIcon, Edit2Icon, CalendarIcon, DownloadIcon, AlertCircleIcon } from 'lucide-react';
+import { Program, Zone, BzwSetting, ActivityCategory } from '../types';
+import { SearchIcon, FilterIcon, FileTextIcon, TrashIcon, Edit2Icon, CalendarIcon, DownloadIcon, AlertCircleIcon, TagsIcon } from 'lucide-react';
 
 interface ReportViewProps {
   programs: Program[];
@@ -12,25 +12,26 @@ interface ReportViewProps {
   onEdit: (p: Program) => void;
   onDelete: (id: string) => void;
   bzwSettings?: BzwSetting[];
+  categories?: ActivityCategory[];
 }
 
-export default function ReportView({ programs, user, onEdit, onDelete, bzwSettings }: ReportViewProps) {
+export default function ReportView({ programs, user, onEdit, onDelete, bzwSettings, categories }: ReportViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [zoneFilter, setZoneFilter] = useState<Zone | 'All'>('All');
   const [sectorFilter, setSectorFilter] = useState<string>('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   
   const availableYears = bzwSettings && bzwSettings.length > 0 
     ? [...bzwSettings.map(s => s.year)].sort((a,b) => b - a) 
     : [new Date().getFullYear()];
     
   const [selectedYear, setSelectedYear] = useState<number | 'Semua'>(availableYears[0]);
-  
-  const [printErrorModalOpen, setPrintErrorModalOpen] = useState(false);
 
   const filteredPrograms = useMemo(() => {
     return programs
       .filter(p => zoneFilter === 'All' || p.zone === zoneFilter)
       .filter(p => sectorFilter === 'All' || p.sector === sectorFilter)
+      .filter(p => categoryFilter === 'All' || p.activityType === categoryFilter)
       .filter(p => {
         if (selectedYear === 'Semua') return true;
         const [y] = p.date.split('-');
@@ -41,7 +42,7 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
         p.location?.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [programs, searchTerm, zoneFilter, sectorFilter, selectedYear, bzwSettings]);
+  }, [programs, searchTerm, zoneFilter, sectorFilter, categoryFilter, selectedYear, bzwSettings]);
 
   const calculateProgramStats = (p: Program) => {
     const zakat = (p.collections || []).filter(c => c.collection_type === 'Zakat').reduce((sum, c) => sum + Number(c.amount || 0), 0);
@@ -55,18 +56,6 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
     const roi = roiNum !== null ? roiNum.toFixed(0) + '%' : '-';
     
     return { zakat, wakaf, bilZakat, bilWakaf, ttlKutipan, ttlBil, pc, roi };
-  };
-
-  const handlePrint = () => {
-    try {
-      if (window !== window.top) {
-        setPrintErrorModalOpen(true);
-        return;
-      }
-      window.print();
-    } catch (e) {
-      setPrintErrorModalOpen(true);
-    }
   };
 
   const handleExportCSV = () => {
@@ -187,7 +176,8 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
       });
     }
 
-    doc.save(`Laporan_BZW_${format(new Date(), 'yyyyMMdd')}.pdf`);
+    const pdfBlobUrl = doc.output('bloburl');
+    window.open(pdfBlobUrl, '_blank');
   };
 
   const groupedPrograms = useMemo(() => {
@@ -258,6 +248,20 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
             </div>
 
             <div className="relative">
+              <TagsIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <select 
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-slate-700 appearance-none"
+              >
+                <option value="All">Semua Kategori</option>
+                {categories?.map((cat) => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
               <CalendarIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <select 
                 value={selectedYear}
@@ -286,19 +290,11 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
 
               <button 
                 onClick={handleExportPDF}
-                title="Muat Turun PDF"
-                className="flex-1 min-w-[120px] md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors border border-slate-200"
+                title="Pratinjau PDF"
+                className="flex-1 min-w-[120px] md:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors border border-emerald-700"
               >
                 <FileTextIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">PDF</span>
-              </button>
-
-              <button 
-                onClick={handlePrint}
-                className="flex-1 min-w-[140px] md:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors border border-emerald-700"
-              >
-                <PrinterIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Cetak Laporan</span>
+                <span className="hidden sm:inline">Pratinjau PDF</span>
               </button>
             </div>
           )}
@@ -448,41 +444,6 @@ export default function ReportView({ programs, user, onEdit, onDelete, bzwSettin
       <div className="hidden print:block text-center mt-8 text-slate-500 text-sm">
         <p>Dicetak pada: {format(new Date(), 'dd MMMM yyyy, HH:mm', { locale: ms })}</p>
       </div>
-
-      {printErrorModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm shadow-2xl">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in duration-200">
-            <div className="p-4 bg-amber-500 text-white flex items-start gap-3">
-              <div className="bg-white/20 p-2 rounded-lg shrink-0 mt-0.5 border border-white/10 shadow-sm">
-                <AlertCircleIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black uppercase tracking-tight">Fungsi Cetakan</h3>
-                <p className="text-white/90 text-sm mt-1 leading-snug">
-                   Fungsi cetakan tidak disokong secara langsung dalam paparan pratinjau ini.
-                </p>
-              </div>
-            </div>
-            
-            <div className="p-6 text-slate-600 text-sm font-medium leading-relaxed">
-              <p className="mb-4">Sila pilih salah satu cara berikut:</p>
-              <ul className="list-disc pl-5 space-y-2 mb-4 text-slate-700">
-                <li>Gunakan fungsi <strong>Muat Turun PDF</strong> sebagai alternatif.</li>
-                <li>Atau buka aplikasi ini dalam tab baharu menggunakan butang di sebelah kanan atas skrin AI Studio untuk membolehkan fungsi cetakan pelayar web.</li>
-              </ul>
-            </div>
-
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-              <button 
-                onClick={() => setPrintErrorModalOpen(false)}
-                className="py-2.5 px-6 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-bold text-sm shadow-sm transition-colors"
-              >
-                Faham
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

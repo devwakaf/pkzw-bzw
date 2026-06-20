@@ -370,9 +370,9 @@ function App() {
           {activeTab === 'dashboard' ? (
             <Dashboard programs={programs} bzwSettings={bzwSettings} />
           ) : activeTab === 'calendar' ? (
-            <CalendarView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} />
+            <CalendarView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} categories={categories} />
           ) : activeTab === 'reports' ? (
-            <ReportView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} />
+            <ReportView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} categories={categories} />
           ) : activeTab === 'categories' && user ? (
             <CategoryManager categories={categories} onUpdate={handleCategoryUpdate} />
           ) : activeTab === 'trash' && user?.role === 'superadmin' ? (

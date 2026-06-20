@@ -245,11 +245,11 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch settings");
     return res.json();
   },
-  saveBzwSetting: async (year: number, start_date: string, end_date: string, hijri_year?: string, zakat_target?: number, wakaf_target?: number) => {
+  saveBzwSetting: async (data: { year: number, start_date: string, end_date: string, hijri_year?: string, zakat_target?: number, wakaf_target?: number, kempen_digital_target?: number }) => {
     const res = await fetch(`${API_BASE}/bzw-settings`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ year, start_date, end_date, hijri_year, zakat_target, wakaf_target })
+      body: JSON.stringify(data)
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));

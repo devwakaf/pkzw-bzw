@@ -196,7 +196,8 @@ async function startServer() {
                 end_date DATE,
                 hijri_year VARCHAR(255),
                 zakat_target DECIMAL(15,2) DEFAULT 0,
-                wakaf_target DECIMAL(15,2) DEFAULT 0
+                wakaf_target DECIMAL(15,2) DEFAULT 0,
+                kempen_digital_target DECIMAL(15,2) DEFAULT 0
               )
             `);
             try {
@@ -210,6 +211,9 @@ async function startServer() {
               }
               if (!columnNames.includes('wakaf_target')) {
                 await pool.query("ALTER TABLE bzw_settings ADD COLUMN wakaf_target DECIMAL(15,2) DEFAULT 0");
+              }
+              if (!columnNames.includes('kempen_digital_target')) {
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN kempen_digital_target DECIMAL(15,2) DEFAULT 0");
               }
             } catch(e) {}
 
@@ -286,7 +290,7 @@ async function startServer() {
                   amount DECIMAL(15,2) DEFAULT 0,
                   payers_count INT DEFAULT 0,
                   payment_type VARCHAR(255),
-                  FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+                  INDEX (program_id)
                 )
               `);
               
@@ -433,7 +437,8 @@ async function startServer() {
             end_date DATE,
             hijri_year VARCHAR(255),
             zakat_target DECIMAL(15,2) DEFAULT 0,
-            wakaf_target DECIMAL(15,2) DEFAULT 0
+            wakaf_target DECIMAL(15,2) DEFAULT 0,
+            kempen_digital_target DECIMAL(15,2) DEFAULT 0
           )
         `);
         try {
@@ -448,6 +453,9 @@ async function startServer() {
           if (!columnNames.includes('wakaf_target')) {
             await p.query("ALTER TABLE bzw_settings ADD COLUMN wakaf_target DECIMAL(15,2) DEFAULT 0");
           }
+          if (!columnNames.includes('kempen_digital_target')) {
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN kempen_digital_target DECIMAL(15,2) DEFAULT 0");
+          }
         } catch(e) {}
 
         await p.query(`
@@ -458,7 +466,7 @@ async function startServer() {
             amount DECIMAL(15,2) DEFAULT 0,
             payers_count INT DEFAULT 0,
             payment_type VARCHAR(255),
-            FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+            INDEX (program_id)
           )
         `);
 
@@ -679,7 +687,7 @@ async function startServer() {
   // BZW Settings
   app.get("/api/bzw-settings", async (req, res) => {
     try {
-      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year, zakat_target, wakaf_target FROM bzw_settings ORDER BY year ASC"));
+      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target FROM bzw_settings ORDER BY year ASC"));
       res.json(rows);
     } catch (e: any) {
       console.error("Error fetching bzw_settings:", e);
@@ -689,12 +697,12 @@ async function startServer() {
 
   app.post("/api/bzw-settings", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
-      const { year, start_date, end_date, hijri_year, zakat_target, wakaf_target } = req.body;
+      const { year, start_date, end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target } = req.body;
       const [existing]: any = await executeDb(req, res, (p) => p.query("SELECT year FROM bzw_settings WHERE year = ?", [year]));
       if (existing && existing.length > 0) {
-        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ?, zakat_target = ?, wakaf_target = ? WHERE year = ?", [start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, year]));
+        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ?, zakat_target = ?, wakaf_target = ?, kempen_digital_target = ? WHERE year = ?", [start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, kempen_digital_target || 0, year]));
       } else {
-        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year, zakat_target, wakaf_target) VALUES (?, ?, ?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0]));
+        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target) VALUES (?, ?, ?, ?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, kempen_digital_target || 0]));
       }
       res.json({ success: true });
     } catch (e: any) {
@@ -915,7 +923,10 @@ async function startServer() {
 
   app.delete("/api/programs/hard/:id", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
-      await executeDb(req, res, (p) => p.query("DELETE FROM programs WHERE id = ?", [req.params.id]));
+      await executeDb(req, res, async (p) => {
+        await p.query("DELETE FROM program_collections WHERE program_id = ?", [req.params.id]);
+        await p.query("DELETE FROM programs WHERE id = ?", [req.params.id]);
+      });
       res.json({ success: true });
     } catch (e: any) {
       console.error("Error hard deleting program:", e);

@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function BzwSettings({ bzwSettings, refreshSettings }: Props) {
-  const [formData, setFormData] = useState({ year: new Date().getFullYear(), start_date: '', end_date: '', hijri_year: '', zakat_target: 0, wakaf_target: 0 });
+  const [formData, setFormData] = useState({ year: new Date().getFullYear(), start_date: '', end_date: '', hijri_year: '', zakat_target: 0, wakaf_target: 0, kempen_digital_target: 0 });
   const [loading, setLoading] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -18,9 +18,9 @@ export default function BzwSettings({ bzwSettings, refreshSettings }: Props) {
     if (!formData.start_date || !formData.end_date) return;
     try {
       setLoading(true);
-      await api.saveBzwSetting(formData.year, formData.start_date, formData.end_date, formData.hijri_year, formData.zakat_target, formData.wakaf_target);
+      await api.saveBzwSetting({ ...formData });
       refreshSettings();
-      setFormData({ year: formData.year + 1, start_date: '', end_date: '', hijri_year: '', zakat_target: 0, wakaf_target: 0 });
+      setFormData({ year: formData.year + 1, start_date: '', end_date: '', hijri_year: '', zakat_target: 0, wakaf_target: 0, kempen_digital_target: 0 });
     } catch (err) {
       alert("Gagal menyimpan tetapan");
     } finally {
@@ -35,7 +35,8 @@ export default function BzwSettings({ bzwSettings, refreshSettings }: Props) {
       end_date: s.end_date,
       hijri_year: s.hijri_year || '',
       zakat_target: s.zakat_target || 0,
-      wakaf_target: s.wakaf_target || 0
+      wakaf_target: s.wakaf_target || 0,
+      kempen_digital_target: s.kempen_digital_target || 0
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -105,6 +106,19 @@ export default function BzwSettings({ bzwSettings, refreshSettings }: Props) {
               placeholder="0.00" 
             />
           </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Target Kempen Digital (RM)</label>
+            <NumericFormat 
+              value={formData.kempen_digital_target !== undefined ? formData.kempen_digital_target : ''} 
+              onValueChange={(values) => setFormData({...formData, kempen_digital_target: values.floatValue !== undefined ? values.floatValue : 0})}
+              thousandSeparator={true}
+              decimalScale={2}
+              fixedDecimalScale={true}
+              allowNegative={false}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none" 
+              placeholder="0.00" 
+            />
+          </div>
         </div>
         
         <div className="w-full flex justify-end mt-2">
@@ -139,6 +153,7 @@ export default function BzwSettings({ bzwSettings, refreshSettings }: Props) {
                   <div className="flex flex-col gap-1">
                     <span className="font-bold text-blue-600">Z: RM {Number(s.zakat_target || 0).toLocaleString()}</span>
                     <span className="font-bold text-emerald-600">W: RM {Number(s.wakaf_target || 0).toLocaleString()}</span>
+                    <span className="font-bold text-purple-600">KD: RM {Number(s.kempen_digital_target || 0).toLocaleString()}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-center">

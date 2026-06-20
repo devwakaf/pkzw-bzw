@@ -5,6 +5,7 @@ export interface BzwSetting {
   hijri_year?: string;
   zakat_target?: number;
   wakaf_target?: number;
+  kempen_digital_target?: number;
 }
 
 export type Zone = 'HQ' | 'Zon Timur' | 'Zon Tengah' | 'Zon Barat';

@@ -27,7 +27,7 @@ import {
   TargetIcon,
   UserCircleIcon,
 } from "lucide-react";
-import { Program, Zone, BzwSetting } from "../types";
+import { Program, Zone, BzwSetting, ActivityCategory } from "../types";
 
 interface CalendarViewProps {
   programs: Program[];
@@ -35,6 +35,7 @@ interface CalendarViewProps {
   onEdit: (p: Program) => void;
   onDelete: (id: string) => void;
   bzwSettings?: BzwSetting[];
+  categories?: ActivityCategory[];
 }
 
 const zoneColors: Record<Zone, string> = {
@@ -64,8 +65,10 @@ export default function CalendarView({
   onEdit,
   onDelete,
   bzwSettings,
+  categories,
 }: CalendarViewProps) {
   const [zoneFilter, setZoneFilter] = useState<Zone | "All">("All");
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
   // Year Filter
   const availableYears =
@@ -223,10 +226,9 @@ export default function CalendarView({
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
 
-  const filteredPrograms =
-    zoneFilter === "All"
-      ? programs
-      : programs.filter((p) => p.zone === zoneFilter);
+  const filteredPrograms = programs
+    .filter((p) => zoneFilter === "All" || p.zone === zoneFilter)
+    .filter((p) => categoryFilter === "All" || p.activityType === categoryFilter);
 
   const programsByDate = days.reduce(
     (acc, day) => {
@@ -413,12 +415,12 @@ export default function CalendarView({
             <span
               className={`px-1.5 py-0.5 rounded-md text-[10px] ${zoneFilter === "All" ? "bg-white/20" : "bg-slate-200 text-slate-600"}`}
             >
-              {programs.length}
+              {programs.filter(p => categoryFilter === "All" || p.activityType === categoryFilter).length}
             </span>
           </button>
           {(["HQ", "Zon Timur", "Zon Tengah", "Zon Barat"] as Zone[]).map(
             (z) => {
-              const count = programs.filter((p) => p.zone === z).length;
+              const count = programs.filter((p) => (p.zone === z) && (categoryFilter === "All" || p.activityType === categoryFilter)).length;
               return (
                 <button
                   key={z}
@@ -439,6 +441,30 @@ export default function CalendarView({
               );
             },
           )}
+        </div>
+
+        {/* Category Filter */}
+        <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3 w-full sm:w-auto shrink-0">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-2">
+            Kategori :
+          </span>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-shadow appearance-none"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+              backgroundPosition: `right 0.5rem center`,
+              backgroundRepeat: `no-repeat`,
+              backgroundSize: `1.5em 1.5em`,
+              paddingRight: `2.5rem`,
+            }}
+          >
+            <option value="All">Semua Kategori</option>
+            {categories?.map((cat) => (
+               <option key={cat.id} value={cat.name}>{cat.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* Year Filter */}

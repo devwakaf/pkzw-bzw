@@ -50,6 +50,7 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
 
     let zakatSum = 0;
     let wakafSum = 0;
+    let kempenDigitalSum = 0;
     let zakatParticipants = 0;
     let wakafParticipants = 0;
     const activityCollectionStats: Record<
@@ -98,6 +99,9 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
 
       zakatSum += programZakatSum;
       wakafSum += programWakafSum;
+      if (p.activityType?.toLowerCase().includes('kempen digital')) {
+        kempenDigitalSum += programZakatSum + programWakafSum;
+      }
       zakatParticipants += programZakatParticipants;
       wakafParticipants += programWakafParticipants;
 
@@ -134,10 +138,12 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
 
     let zakatTargetSum = 0;
     let wakafTargetSum = 0;
+    let kempenDigitalTargetSum = 0;
     if (bzwSettings) {
       bzwSettings.forEach(s => {
         zakatTargetSum += Number(s.zakat_target || 0);
         wakafTargetSum += Number(s.wakaf_target || 0);
+        kempenDigitalTargetSum += Number(s.kempen_digital_target || 0);
       });
     }
 
@@ -157,8 +163,10 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
       activityData,
       zakatSum,
       wakafSum,
+      kempenDigitalSum,
       zakatTargetSum,
       wakafTargetSum,
+      kempenDigitalTargetSum,
       collectionDistribution,
       zoneCollectionData,
       sortedPrograms,
@@ -235,7 +243,7 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-5 flex flex-col gap-3">
           <div className="flex items-center gap-4">
             <div className="bg-emerald-100 text-emerald-600 p-3 rounded-lg shadow-sm">
@@ -253,17 +261,17 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
                     maximumFractionDigits: 2,
                   })}
                 </p>
-                <div className="flex justify-between items-end">
-                  <p className="text-sm font-bold text-emerald-800/60 flex items-center mt-1">
-                    <TargetIcon className="w-3 h-3 mr-1" />
-                    <span className="font-medium mr-1">Target:</span>
-                    RM {stats.zakatTargetSum.toLocaleString("en-MY", {
+                <div className="flex justify-between items-end gap-2">
+                  <p className="text-sm font-bold text-emerald-800/60 flex items-center mt-1 shrink min-w-0">
+                    <TargetIcon className="w-3 h-3 shrink-0 mr-1" />
+                    <span className="font-medium mr-1 hidden sm:inline">Target:</span>
+                    <span className="truncate">RM {stats.zakatTargetSum.toLocaleString("en-MY", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}
+                    })}</span>
                   </p>
                   {stats.zakatTargetSum > 0 && (
-                    <p className="text-2xl font-bold text-emerald-700">
+                    <p className="text-xl font-bold text-emerald-700 shrink-0">
                       {Math.round((stats.zakatSum / stats.zakatTargetSum) * 100)}%
                     </p>
                   )}
@@ -296,17 +304,17 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
                     maximumFractionDigits: 2,
                   })}
                 </p>
-                <div className="flex justify-between items-end">
-                  <p className="text-sm font-bold text-purple-800/60 flex items-center mt-1">
-                    <TargetIcon className="w-3 h-3 mr-1" />
-                    <span className="font-medium mr-1">Target:</span>
-                    RM {stats.wakafTargetSum.toLocaleString("en-MY", {
+                <div className="flex justify-between items-end gap-2">
+                  <p className="text-sm font-bold text-purple-800/60 flex items-center mt-1 shrink min-w-0">
+                    <TargetIcon className="w-3 h-3 shrink-0 mr-1" />
+                    <span className="font-medium mr-1 hidden sm:inline">Target:</span>
+                    <span className="truncate">RM {stats.wakafTargetSum.toLocaleString("en-MY", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}
+                    })}</span>
                   </p>
                   {stats.wakafTargetSum > 0 && (
-                    <p className="text-2xl font-bold text-purple-700">
+                    <p className="text-xl font-bold text-purple-700 shrink-0">
                       {Math.round((stats.wakafSum / stats.wakafTargetSum) * 100)}%
                     </p>
                   )}
@@ -318,6 +326,49 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
             <div 
               className="bg-purple-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
               style={{ width: `${Math.min((stats.wakafSum / Math.max(stats.wakafTargetSum, 1)) * 100, 100)}%` }}
+            ></div>
+          </div>
+        </div>
+
+        <div className="bg-rose-50 rounded-xl shadow-sm border border-rose-200 p-5 flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <div className="bg-rose-100 text-rose-600 p-3 rounded-lg shadow-sm">
+              <LayoutListIcon className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-rose-600/80 uppercase tracking-tight">
+                Kempen Digital
+              </p>
+              <div className="flex flex-col gap-0.5 mt-1">
+                <p className="text-xl font-bold text-rose-900 leading-none">
+                  <span className="text-sm font-medium mr-1 text-rose-700">Semasa:</span>
+                  RM {stats.kempenDigitalSum.toLocaleString("en-MY", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <div className="flex justify-between items-end gap-2">
+                  <p className="text-sm font-bold text-rose-800/60 flex items-center mt-1 shrink min-w-0">
+                    <TargetIcon className="w-3 h-3 shrink-0 mr-1" />
+                    <span className="font-medium mr-1 hidden sm:inline">Target:</span>
+                    <span className="truncate">RM {stats.kempenDigitalTargetSum.toLocaleString("en-MY", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}</span>
+                  </p>
+                  {stats.kempenDigitalTargetSum > 0 && (
+                    <p className="text-xl font-bold text-rose-700 shrink-0">
+                      {Math.round((stats.kempenDigitalSum / stats.kempenDigitalTargetSum) * 100)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="w-full bg-rose-200/50 rounded-full h-2.5 mt-1 overflow-hidden">
+            <div 
+              className="bg-rose-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+              style={{ width: `${Math.min((stats.kempenDigitalSum / Math.max(stats.kempenDigitalTargetSum, 1)) * 100, 100)}%` }}
             ></div>
           </div>
         </div>
