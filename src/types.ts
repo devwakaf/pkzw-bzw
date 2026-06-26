@@ -6,6 +6,18 @@ export interface BzwSetting {
   zakat_target?: number;
   wakaf_target?: number;
   kempen_digital_target?: number;
+  target_pbk_zakat?: number;
+  target_pbk_wakaf?: number;
+  target_pzb?: number;
+  target_pgw?: number;
+  target_digital_zakat?: number;
+  target_digital_wakaf?: number;
+  target_count_kaunter_zakat?: number;
+  target_count_kaunter_wakaf?: number;
+  target_count_pzb?: number;
+  target_count_pgw?: number;
+  target_count_digital_zakat?: number;
+  target_count_digital_wakaf?: number;
 }
 
 export type Zone = 'HQ' | 'Zon Timur' | 'Zon Tengah' | 'Zon Barat';
@@ -22,6 +34,7 @@ export interface ProgramCollection {
   amount?: number;
   payers_count?: number;
   payment_type?: string;
+  payer_category?: string;
 }
 
 export interface Program {

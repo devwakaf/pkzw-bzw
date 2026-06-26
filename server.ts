@@ -215,6 +215,24 @@ async function startServer() {
               if (!columnNames.includes('kempen_digital_target')) {
                 await pool.query("ALTER TABLE bzw_settings ADD COLUMN kempen_digital_target DECIMAL(15,2) DEFAULT 0");
               }
+              if (!columnNames.includes('target_pbk_zakat')) {
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_pbk_zakat DECIMAL(15,2) DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_pbk_wakaf DECIMAL(15,2) DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_pzb DECIMAL(15,2) DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_pgw DECIMAL(15,2) DEFAULT 0");
+              }
+              if (!columnNames.includes('target_digital_zakat')) {
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_digital_zakat DECIMAL(15,2) DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_digital_wakaf DECIMAL(15,2) DEFAULT 0");
+              }
+              if (!columnNames.includes('target_count_kaunter_zakat')) {
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_count_kaunter_zakat INT DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_count_kaunter_wakaf INT DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_count_pzb INT DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_count_pgw INT DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_count_digital_zakat INT DEFAULT 0");
+                await pool.query("ALTER TABLE bzw_settings ADD COLUMN target_count_digital_wakaf INT DEFAULT 0");
+              }
             } catch(e) {}
 
 
@@ -290,9 +308,18 @@ async function startServer() {
                   amount DECIMAL(15,2) DEFAULT 0,
                   payers_count INT DEFAULT 0,
                   payment_type VARCHAR(255),
+                  payer_category VARCHAR(50),
                   INDEX (program_id)
                 )
               `);
+              
+              try {
+                const [colCols]: any = await pool.query("SHOW COLUMNS FROM program_collections");
+                const colColNames = colCols.map((c: any) => c.Field);
+                if (!colColNames.includes('payer_category')) {
+                  await pool.query("ALTER TABLE program_collections ADD COLUMN payer_category VARCHAR(50)");
+                }
+              } catch (e) {}
               
             } catch (err) {
               console.error("Migration check failed:", err);
@@ -456,6 +483,24 @@ async function startServer() {
           if (!columnNames.includes('kempen_digital_target')) {
             await p.query("ALTER TABLE bzw_settings ADD COLUMN kempen_digital_target DECIMAL(15,2) DEFAULT 0");
           }
+          if (!columnNames.includes('target_pbk_zakat')) {
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_pbk_zakat DECIMAL(15,2) DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_pbk_wakaf DECIMAL(15,2) DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_pzb DECIMAL(15,2) DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_pgw DECIMAL(15,2) DEFAULT 0");
+          }
+          if (!columnNames.includes('target_digital_zakat')) {
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_digital_zakat DECIMAL(15,2) DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_digital_wakaf DECIMAL(15,2) DEFAULT 0");
+          }
+          if (!columnNames.includes('target_count_kaunter_zakat')) {
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_count_kaunter_zakat INT DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_count_kaunter_wakaf INT DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_count_pzb INT DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_count_pgw INT DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_count_digital_zakat INT DEFAULT 0");
+            await p.query("ALTER TABLE bzw_settings ADD COLUMN target_count_digital_wakaf INT DEFAULT 0");
+          }
         } catch(e) {}
 
         await p.query(`
@@ -466,9 +511,18 @@ async function startServer() {
             amount DECIMAL(15,2) DEFAULT 0,
             payers_count INT DEFAULT 0,
             payment_type VARCHAR(255),
+            payer_category VARCHAR(50),
             INDEX (program_id)
           )
         `);
+        
+        try {
+          const [colCols]: any = await p.query("SHOW COLUMNS FROM program_collections");
+          const colColNames = colCols.map((c: any) => c.Field);
+          if (!colColNames.includes('payer_category')) {
+            await p.query("ALTER TABLE program_collections ADD COLUMN payer_category VARCHAR(50)");
+          }
+        } catch (e) {}
 
         // Create default superadmin if no users exist
         const [userCountRows]: any = await p.query("SELECT COUNT(*) as count FROM users");
@@ -687,7 +741,7 @@ async function startServer() {
   // BZW Settings
   app.get("/api/bzw-settings", async (req, res) => {
     try {
-      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target FROM bzw_settings ORDER BY year ASC"));
+      const [rows] = await executeDb(req, res, (p) => p.query("SELECT year, DATE_FORMAT(start_date, '%Y-%m-%d') as start_date, DATE_FORMAT(end_date, '%Y-%m-%d') as end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target, target_pbk_zakat, target_pbk_wakaf, target_pzb, target_pgw, target_digital_zakat, target_digital_wakaf, target_count_kaunter_zakat, target_count_kaunter_wakaf, target_count_pzb, target_count_pgw, target_count_digital_zakat, target_count_digital_wakaf FROM bzw_settings ORDER BY year ASC"));
       res.json(rows);
     } catch (e: any) {
       console.error("Error fetching bzw_settings:", e);
@@ -697,12 +751,12 @@ async function startServer() {
 
   app.post("/api/bzw-settings", authenticateToken, requireSuperAdmin, async (req, res) => {
     try {
-      const { year, start_date, end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target } = req.body;
+      const { year, start_date, end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target, target_pbk_zakat, target_pbk_wakaf, target_pzb, target_pgw, target_digital_zakat, target_digital_wakaf, target_count_kaunter_zakat, target_count_kaunter_wakaf, target_count_pzb, target_count_pgw, target_count_digital_zakat, target_count_digital_wakaf } = req.body;
       const [existing]: any = await executeDb(req, res, (p) => p.query("SELECT year FROM bzw_settings WHERE year = ?", [year]));
       if (existing && existing.length > 0) {
-        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ?, zakat_target = ?, wakaf_target = ?, kempen_digital_target = ? WHERE year = ?", [start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, kempen_digital_target || 0, year]));
+        await executeDb(req, res, (p) => p.query("UPDATE bzw_settings SET start_date = ?, end_date = ?, hijri_year = ?, zakat_target = ?, wakaf_target = ?, kempen_digital_target = ?, target_pbk_zakat = ?, target_pbk_wakaf = ?, target_pzb = ?, target_pgw = ?, target_digital_zakat = ?, target_digital_wakaf = ?, target_count_kaunter_zakat = ?, target_count_kaunter_wakaf = ?, target_count_pzb = ?, target_count_pgw = ?, target_count_digital_zakat = ?, target_count_digital_wakaf = ? WHERE year = ?", [start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, kempen_digital_target || 0, target_pbk_zakat || 0, target_pbk_wakaf || 0, target_pzb || 0, target_pgw || 0, target_digital_zakat || 0, target_digital_wakaf || 0, target_count_kaunter_zakat || 0, target_count_kaunter_wakaf || 0, target_count_pzb || 0, target_count_pgw || 0, target_count_digital_zakat || 0, target_count_digital_wakaf || 0, year]));
       } else {
-        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target) VALUES (?, ?, ?, ?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, kempen_digital_target || 0]));
+        await executeDb(req, res, (p) => p.query("INSERT INTO bzw_settings (year, start_date, end_date, hijri_year, zakat_target, wakaf_target, kempen_digital_target, target_pbk_zakat, target_pbk_wakaf, target_pzb, target_pgw, target_digital_zakat, target_digital_wakaf, target_count_kaunter_zakat, target_count_kaunter_wakaf, target_count_pzb, target_count_pgw, target_count_digital_zakat, target_count_digital_wakaf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [year, start_date, end_date, hijri_year || null, zakat_target || 0, wakaf_target || 0, kempen_digital_target || 0, target_pbk_zakat || 0, target_pbk_wakaf || 0, target_pzb || 0, target_pgw || 0, target_digital_zakat || 0, target_digital_wakaf || 0, target_count_kaunter_zakat || 0, target_count_kaunter_wakaf || 0, target_count_pzb || 0, target_count_pgw || 0, target_count_digital_zakat || 0, target_count_digital_wakaf || 0]));
       }
       res.json({ success: true });
     } catch (e: any) {
@@ -798,8 +852,8 @@ async function startServer() {
           if (collections && Array.isArray(collections)) {
             for (const c of collections) {
               await conn.query(
-                "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
-                [crypto.randomUUID(), id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null]
+                "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type, payer_category) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [crypto.randomUUID(), id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null, c.payer_category || null]
               );
             }
           }
@@ -853,8 +907,8 @@ async function startServer() {
           if (collections && Array.isArray(collections)) {
             for (const c of collections) {
               await conn.query(
-                "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
-                [crypto.randomUUID(), req.params.id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null]
+                "INSERT INTO program_collections (id, program_id, collection_type, amount, payers_count, payment_type, payer_category) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [crypto.randomUUID(), req.params.id, c.collection_type, c.amount || 0, c.payers_count || 0, c.payment_type || null, c.payer_category || null]
               );
             }
           }

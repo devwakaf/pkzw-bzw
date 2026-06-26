@@ -471,7 +471,7 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                       >
                         <XIcon className="w-4 h-4" />
                       </button>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-1 pr-6 sm:pr-0">
+                      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-1 pr-6 sm:pr-0">
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Jenis <span className="text-red-500">*</span></label>
                           <select required value={coll.collection_type} onChange={(e) => updateCollection(idx, 'collection_type', e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none text-xs font-semibold text-slate-800">
@@ -505,6 +505,14 @@ export default function ProgramForm({ program, categories, onClose, onSubmit }: 
                             <option value="Cek">Cek</option>
                             <option value="Potongan Gaji">Potongan Gaji</option>
                             <option value="Campuran">Campuran</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-1">Kategori</label>
+                          <select value={coll.payer_category || ''} onChange={(e) => updateCollection(idx, 'payer_category', e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 bg-white outline-none text-xs font-semibold text-slate-800">
+                            <option value="">Pilih...</option>
+                            <option value="Baru">Baru</option>
+                            <option value="Lama">Lama</option>
                           </select>
                         </div>
                       </div>

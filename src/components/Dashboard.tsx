@@ -53,6 +53,28 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
     let kempenDigitalSum = 0;
     let zakatParticipants = 0;
     let wakafParticipants = 0;
+    
+    // Segment Stats
+    let zakatPbkSum = 0, zakatPbkCount = 0;
+    let zakatPzbSum = 0, zakatPzbCount = 0;
+    let zakatDigitalSum = 0, zakatDigitalCount = 0;
+    
+    let wakafPbkSum = 0, wakafPbkCount = 0;
+    let wakafPgwSum = 0, wakafPgwCount = 0;
+    let wakafDigitalSum = 0, wakafDigitalCount = 0;
+
+    let zakatBaruSum = 0;
+    let zakatBaruCount = 0;
+    let zakatLamaSum = 0;
+    let zakatLamaCount = 0;
+    let wakafBaruSum = 0;
+    let wakafBaruCount = 0;
+    let wakafLamaSum = 0;
+    let wakafLamaCount = 0;
+    let digitalBaruSum = 0;
+    let digitalBaruCount = 0;
+    let digitalLamaSum = 0;
+    let digitalLamaCount = 0;
     const activityCollectionStats: Record<
       string,
       { name: string; value: number; participants: number }
@@ -84,23 +106,69 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
       let programWakafSum = 0;
       let programZakatParticipants = 0;
       let programWakafParticipants = 0;
+      
+      let pZakatBaruSum = 0;
+      let pZakatBaruCount = 0;
+      let pZakatLamaSum = 0;
+      let pZakatLamaCount = 0;
+      let pWakafBaruSum = 0;
+      let pWakafBaruCount = 0;
+      let pWakafLamaSum = 0;
+      let pWakafLamaCount = 0;
+
+      const isDigital = p.activityType?.toLowerCase().includes('kempen digital');
 
       (p.collections || []).forEach((c) => {
         const amount = Number(c.amount || 0);
         const payers = Number(c.payers_count || 0);
+        const isBaru = c.payer_category === 'Baru';
+        const isLama = c.payer_category === 'Lama';
+        const isPotonganGaji = c.payment_type === 'Potongan Gaji';
+        const isKaunter = isBaru && !isPotonganGaji && !isDigital;
+
         if (c.collection_type === "Zakat") {
           programZakatSum += amount;
           programZakatParticipants += payers;
+          if (isBaru) { pZakatBaruSum += amount; pZakatBaruCount += payers; }
+          if (isLama) { pZakatLamaSum += amount; pZakatLamaCount += payers; }
+          
+          if (isBaru) {
+            if (isDigital) { zakatDigitalSum += amount; zakatDigitalCount += payers; }
+            else if (isPotonganGaji) { zakatPzbSum += amount; zakatPzbCount += payers; }
+            else { zakatPbkSum += amount; zakatPbkCount += payers; }
+          }
         } else if (c.collection_type === "Wakaf") {
           programWakafSum += amount;
           programWakafParticipants += payers;
+          if (isBaru) { pWakafBaruSum += amount; pWakafBaruCount += payers; }
+          if (isLama) { pWakafLamaSum += amount; pWakafLamaCount += payers; }
+          
+          if (isBaru) {
+            if (isDigital) { wakafDigitalSum += amount; wakafDigitalCount += payers; }
+            else if (isPotonganGaji) { wakafPgwSum += amount; wakafPgwCount += payers; }
+            else { wakafPbkSum += amount; wakafPbkCount += payers; }
+          }
         }
       });
 
       zakatSum += programZakatSum;
       wakafSum += programWakafSum;
+      
+      zakatBaruSum += pZakatBaruSum;
+      zakatBaruCount += pZakatBaruCount;
+      zakatLamaSum += pZakatLamaSum;
+      zakatLamaCount += pZakatLamaCount;
+      wakafBaruSum += pWakafBaruSum;
+      wakafBaruCount += pWakafBaruCount;
+      wakafLamaSum += pWakafLamaSum;
+      wakafLamaCount += pWakafLamaCount;
+      
       if (p.activityType?.toLowerCase().includes('kempen digital')) {
         kempenDigitalSum += programZakatSum + programWakafSum;
+        digitalBaruSum += pZakatBaruSum + pWakafBaruSum;
+        digitalBaruCount += pZakatBaruCount + pWakafBaruCount;
+        digitalLamaSum += pZakatLamaSum + pWakafLamaSum;
+        digitalLamaCount += pZakatLamaCount + pWakafLamaCount;
       }
       zakatParticipants += programZakatParticipants;
       wakafParticipants += programWakafParticipants;
@@ -139,11 +207,37 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
     let zakatTargetSum = 0;
     let wakafTargetSum = 0;
     let kempenDigitalTargetSum = 0;
+    let targetPbkZakatSum = 0;
+    let targetPbkWakafSum = 0;
+    let targetPzbSum = 0;
+    let targetPgwSum = 0;
+    let targetDigitalZakatSum = 0;
+    let targetDigitalWakafSum = 0;
+    
+    let targetCountPbkZakat = 0;
+    let targetCountPbkWakaf = 0;
+    let targetCountPzb = 0;
+    let targetCountPgw = 0;
+    let targetCountDigitalZakat = 0;
+    let targetCountDigitalWakaf = 0;
+
     if (bzwSettings) {
       bzwSettings.forEach(s => {
         zakatTargetSum += Number(s.zakat_target || 0);
         wakafTargetSum += Number(s.wakaf_target || 0);
         kempenDigitalTargetSum += Number(s.kempen_digital_target || 0);
+        targetPbkZakatSum += Number(s.target_pbk_zakat || 0);
+        targetPbkWakafSum += Number(s.target_pbk_wakaf || 0);
+        targetPzbSum += Number(s.target_pzb || 0);
+        targetPgwSum += Number(s.target_pgw || 0);
+        targetDigitalZakatSum += Number(s.target_digital_zakat || 0);
+        targetDigitalWakafSum += Number(s.target_digital_wakaf || 0);
+        targetCountPbkZakat += Number(s.target_count_kaunter_zakat || 0);
+        targetCountPbkWakaf += Number(s.target_count_kaunter_wakaf || 0);
+        targetCountPzb += Number(s.target_count_pzb || 0);
+        targetCountPgw += Number(s.target_count_pgw || 0);
+        targetCountDigitalZakat += Number(s.target_count_digital_zakat || 0);
+        targetCountDigitalWakaf += Number(s.target_count_digital_wakaf || 0);
       });
     }
 
@@ -167,9 +261,30 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
       zakatTargetSum,
       wakafTargetSum,
       kempenDigitalTargetSum,
+      targetPbkZakatSum,
+      targetPbkWakafSum,
+      targetPzbSum,
+      targetPgwSum,
+      targetDigitalZakatSum,
+      targetDigitalWakafSum,
+      targetCountPbkZakat,
+      targetCountPbkWakaf,
+      targetCountPzb,
+      targetCountPgw,
+      targetCountDigitalZakat,
+      targetCountDigitalWakaf,
       collectionDistribution,
       zoneCollectionData,
       sortedPrograms,
+      zakatPbkSum, zakatPbkCount,
+      zakatPzbSum, zakatPzbCount,
+      zakatDigitalSum, zakatDigitalCount,
+      wakafPbkSum, wakafPbkCount,
+      wakafPgwSum, wakafPgwCount,
+      wakafDigitalSum, wakafDigitalCount,
+      zakatBaruSum, zakatBaruCount, zakatLamaSum, zakatLamaCount,
+      wakafBaruSum, wakafBaruCount, wakafLamaSum, wakafLamaCount,
+      digitalBaruSum, digitalBaruCount, digitalLamaSum, digitalLamaCount,
     };
   }, [programs, bzwSettings]);
 
@@ -285,6 +400,45 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
               style={{ width: `${Math.min((stats.zakatSum / Math.max(stats.zakatTargetSum, 1)) * 100, 100)}%` }}
             ></div>
           </div>
+          
+          <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-emerald-200/50">
+            <div className="flex justify-between items-center text-[10px] font-bold text-emerald-800">
+              <span>Kaunter ({stats.zakatPbkCount} / {stats.targetCountPbkZakat} org)</span>
+              <span className="text-right">RM {stats.zakatPbkSum.toLocaleString("en-MY")} / {stats.targetPbkZakatSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-emerald-200/50 rounded-full h-1 overflow-hidden mb-1 flex">
+              <div className="bg-emerald-500 h-1" style={{ width: `${Math.min((stats.zakatPbkSum / Math.max(stats.targetPbkZakatSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+            
+            <div className="flex justify-between items-center text-[10px] font-bold text-emerald-800">
+              <span>PZB ({stats.zakatPzbCount} / {stats.targetCountPzb} org)</span>
+              <span className="text-right">RM {stats.zakatPzbSum.toLocaleString("en-MY")} / {stats.targetPzbSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-emerald-200/50 rounded-full h-1 overflow-hidden mb-1 flex">
+              <div className="bg-emerald-500 h-1" style={{ width: `${Math.min((stats.zakatPzbSum / Math.max(stats.targetPzbSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+
+            <div className="flex justify-between items-center text-[10px] font-bold text-emerald-800">
+              <span>Digital ({stats.zakatDigitalCount} / {stats.targetCountDigitalZakat} org)</span>
+              <span className="text-right">RM {stats.zakatDigitalSum.toLocaleString("en-MY")} / {stats.targetDigitalZakatSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-emerald-200/50 rounded-full h-1 overflow-hidden flex">
+              <div className="bg-emerald-500 h-1" style={{ width: `${Math.min((stats.zakatDigitalSum / Math.max(stats.targetDigitalZakatSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-emerald-200/50">
+            <div className="bg-emerald-100/50 rounded p-2">
+              <p className="text-[9px] text-emerald-600 font-bold uppercase mb-0.5">Pembayar Baru</p>
+              <p className="text-[11px] font-bold text-emerald-900">{stats.zakatBaruCount} org</p>
+              <p className="text-[10px] font-semibold text-emerald-700">RM {stats.zakatBaruSum.toLocaleString("en-MY")}</p>
+            </div>
+            <div className="bg-emerald-100/50 rounded p-2">
+              <p className="text-[9px] text-emerald-600 font-bold uppercase mb-0.5">Pembayar Lama</p>
+              <p className="text-[11px] font-bold text-emerald-900">{stats.zakatLamaCount} org</p>
+              <p className="text-[10px] font-semibold text-emerald-700">RM {stats.zakatLamaSum.toLocaleString("en-MY")}</p>
+            </div>
+          </div>
         </div>
 
         <div className="bg-purple-50 rounded-xl shadow-sm border border-purple-200 p-5 flex flex-col gap-3">
@@ -328,6 +482,45 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
               style={{ width: `${Math.min((stats.wakafSum / Math.max(stats.wakafTargetSum, 1)) * 100, 100)}%` }}
             ></div>
           </div>
+          
+          <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-purple-200/50">
+            <div className="flex justify-between items-center text-[10px] font-bold text-purple-800">
+              <span>Kaunter ({stats.wakafPbkCount} / {stats.targetCountPbkWakaf} org)</span>
+              <span className="text-right">RM {stats.wakafPbkSum.toLocaleString("en-MY")} / {stats.targetPbkWakafSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-purple-200/50 rounded-full h-1 overflow-hidden mb-1 flex">
+              <div className="bg-purple-500 h-1" style={{ width: `${Math.min((stats.wakafPbkSum / Math.max(stats.targetPbkWakafSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+            
+            <div className="flex justify-between items-center text-[10px] font-bold text-purple-800">
+              <span>PGW ({stats.wakafPgwCount} / {stats.targetCountPgw} org)</span>
+              <span className="text-right">RM {stats.wakafPgwSum.toLocaleString("en-MY")} / {stats.targetPgwSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-purple-200/50 rounded-full h-1 overflow-hidden mb-1 flex">
+              <div className="bg-purple-500 h-1" style={{ width: `${Math.min((stats.wakafPgwSum / Math.max(stats.targetPgwSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+
+            <div className="flex justify-between items-center text-[10px] font-bold text-purple-800">
+              <span>Digital ({stats.wakafDigitalCount} / {stats.targetCountDigitalWakaf} org)</span>
+              <span className="text-right">RM {stats.wakafDigitalSum.toLocaleString("en-MY")} / {stats.targetDigitalWakafSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-purple-200/50 rounded-full h-1 overflow-hidden flex">
+              <div className="bg-purple-500 h-1" style={{ width: `${Math.min((stats.wakafDigitalSum / Math.max(stats.targetDigitalWakafSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-purple-200/50">
+            <div className="bg-purple-100/50 rounded p-2">
+              <p className="text-[9px] text-purple-600 font-bold uppercase mb-0.5">Pembayar Baru</p>
+              <p className="text-[11px] font-bold text-purple-900">{stats.wakafBaruCount} org</p>
+              <p className="text-[10px] font-semibold text-purple-700">RM {stats.wakafBaruSum.toLocaleString("en-MY")}</p>
+            </div>
+            <div className="bg-purple-100/50 rounded p-2">
+              <p className="text-[9px] text-purple-600 font-bold uppercase mb-0.5">Pembayar Lama</p>
+              <p className="text-[11px] font-bold text-purple-900">{stats.wakafLamaCount} org</p>
+              <p className="text-[10px] font-semibold text-purple-700">RM {stats.wakafLamaSum.toLocaleString("en-MY")}</p>
+            </div>
+          </div>
         </div>
 
         <div className="bg-rose-50 rounded-xl shadow-sm border border-rose-200 p-5 flex flex-col gap-3">
@@ -370,6 +563,36 @@ export default function Dashboard({ programs, bzwSettings }: DashboardProps) {
               className="bg-rose-500 h-2.5 rounded-full transition-all duration-1000 ease-out" 
               style={{ width: `${Math.min((stats.kempenDigitalSum / Math.max(stats.kempenDigitalTargetSum, 1)) * 100, 100)}%` }}
             ></div>
+          </div>
+          <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-rose-200/50">
+            <div className="flex justify-between items-center text-[10px] font-bold text-rose-800">
+              <span>Zakat ({stats.zakatDigitalCount} / {stats.targetCountDigitalZakat} org)</span>
+              <span className="text-right">RM {stats.zakatDigitalSum.toLocaleString("en-MY")} / {stats.targetDigitalZakatSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-rose-200/50 rounded-full h-1 overflow-hidden mb-1 flex">
+              <div className="bg-rose-500 h-1" style={{ width: `${Math.min((stats.zakatDigitalSum / Math.max(stats.targetDigitalZakatSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+            
+            <div className="flex justify-between items-center text-[10px] font-bold text-rose-800">
+              <span>Wakaf ({stats.wakafDigitalCount} / {stats.targetCountDigitalWakaf} org)</span>
+              <span className="text-right">RM {stats.wakafDigitalSum.toLocaleString("en-MY")} / {stats.targetDigitalWakafSum.toLocaleString("en-MY")}</span>
+            </div>
+            <div className="w-full bg-rose-200/50 rounded-full h-1 overflow-hidden flex">
+              <div className="bg-rose-500 h-1" style={{ width: `${Math.min((stats.wakafDigitalSum / Math.max(stats.targetDigitalWakafSum, 1)) * 100, 100)}%` }}></div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-rose-200/50">
+            <div className="bg-rose-100/50 rounded p-2">
+              <p className="text-[9px] text-rose-600 font-bold uppercase mb-0.5">Pembayar Baru</p>
+              <p className="text-[11px] font-bold text-rose-900">{stats.digitalBaruCount} org</p>
+              <p className="text-[10px] font-semibold text-rose-700">RM {stats.digitalBaruSum.toLocaleString("en-MY")}</p>
+            </div>
+            <div className="bg-rose-100/50 rounded p-2">
+              <p className="text-[9px] text-rose-600 font-bold uppercase mb-0.5">Pembayar Lama</p>
+              <p className="text-[11px] font-bold text-rose-900">{stats.digitalLamaCount} org</p>
+              <p className="text-[10px] font-semibold text-rose-700">RM {stats.digitalLamaSum.toLocaleString("en-MY")}</p>
+            </div>
           </div>
         </div>
       </div>
