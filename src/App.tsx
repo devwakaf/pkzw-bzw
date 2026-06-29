@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarIcon, FileTextIcon, HomeIcon, PlusIcon, SettingsIcon, CheckCircle2Icon, AlertCircleIcon, XIcon, LogOutIcon, ListIcon, Trash2Icon, ShieldCheckIcon, KeyIcon } from 'lucide-react';
+import { CalendarIcon, FileTextIcon, HomeIcon, PlusIcon, SettingsIcon, CheckCircle2Icon, AlertCircleIcon, XIcon, LogOutIcon, ListIcon, Trash2Icon, ShieldCheckIcon, KeyIcon, MenuIcon } from 'lucide-react';
 import CalendarView from './components/CalendarView';
 import ReportView from './components/ReportView';
 import ProgramForm from './components/ProgramForm';
@@ -11,6 +11,21 @@ import Login from './components/Login';
 import { Program, ActivityCategory } from './types';
 import { api } from './services/api';
 import { useAuth } from './contexts/AuthContext';
+
+const NavButton = ({ active, onClick, icon, label, isOpen }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; isOpen: boolean }) => (
+  <button
+    onClick={onClick}
+    className={`w-full py-2.5 px-3 rounded-lg flex items-center gap-3 text-sm font-medium transition-all duration-200 ${
+      active
+        ? 'bg-emerald-800 text-white shadow-inner'
+        : 'text-emerald-100/70 hover:bg-emerald-800/50 hover:text-white'
+    }`}
+    title={!isOpen ? label : undefined}
+  >
+    {icon}
+    {isOpen && <span className="whitespace-nowrap">{label}</span>}
+  </button>
+);
 
 function App() {
   const { user, loading: authLoading, logout } = useAuth();
@@ -25,12 +40,25 @@ function App() {
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
   
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   useEffect(() => {
     fetchData();
   }, [user]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLoginSuccess = () => {
     setIsLoginModalOpen(false);
@@ -111,7 +139,7 @@ function App() {
     try {
       setIsDeleting(true);
       const token = localStorage.getItem('bzw_token');
-      const res = await fetch(`/api/programs/${deleteProgramId}`, {
+      const res = await fetch(`/api/programs/${encodeURIComponent(deleteProgramId)}`, {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
@@ -139,7 +167,7 @@ function App() {
   const handleRecoverProgram = async (id: string) => {
     try {
       const token = localStorage.getItem('bzw_token');
-      const res = await fetch(`/api/programs/recover/${id}`, {
+      const res = await fetch(`/api/programs/recover/${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -157,7 +185,7 @@ function App() {
   const handleHardDeleteProgram = async (id: string) => {
     try {
       const token = localStorage.getItem('bzw_token');
-      const res = await fetch(`/api/programs/hard/${id}`, {
+      const res = await fetch(`/api/programs/hard/${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -218,172 +246,202 @@ function App() {
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Memuatkan sistem...</div>;
 
+  const handleTabClick = (tab: any) => {
+    setActiveTab(tab);
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col overflow-hidden print:overflow-visible print:bg-white">
-      {/* Top Header & Navbar */}
-      <header className="bg-emerald-800 text-white shadow-md z-20 shrink-0 print:hidden">
-        <div className="px-6 md:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="bg-gradient-to-br from-white/20 to-white/5 p-0.5 rounded-lg shrink-0 border border-white/20 shadow-inner group transition-transform hover:scale-105">
-              <div className="bg-emerald-900/40 px-2 py-1 rounded-md flex items-center justify-center border border-white/5">
-                <span className="font-black text-xl tracking-tighter bg-gradient-to-b from-white to-emerald-200 bg-clip-text text-transparent drop-shadow-sm">BZW</span>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex overflow-hidden print:overflow-visible print:bg-white print:block">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 md:relative md:flex flex-col bg-emerald-900 text-white transition-all duration-300 ease-in-out shrink-0 shadow-xl print:hidden h-screen ${
+          isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0 md:w-20'
+        }`}
+      >
+        {/* Logo/Header */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-emerald-800 shrink-0">
+          <div className={`flex items-center gap-3 overflow-hidden ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 hidden'}`}>
+            <div className="bg-gradient-to-br from-white/20 to-white/5 p-0.5 rounded-md shrink-0 border border-white/20 shadow-inner">
+              <div className="bg-emerald-950/60 px-1.5 py-0.5 rounded flex items-center justify-center border border-white/5">
+                <span className="font-black text-sm tracking-tighter bg-gradient-to-b from-white to-emerald-200 bg-clip-text text-transparent">BZW</span>
               </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight leading-tight">Sistem BZW 2026</h1>
-              <p className="text-[10px] sm:text-xs text-emerald-100 opacity-90 uppercase tracking-widest mt-0.5">
-                Bulan Zakat & Wakaf
-              </p>
+            <div className="whitespace-nowrap">
+              <h1 className="text-sm font-bold tracking-tight leading-none">Sistem BZW 2026</h1>
             </div>
           </div>
-          <div className="flex gap-3 items-center">
-            {user ? (
-              <>
-                <span className="hidden md:inline text-emerald-100 text-sm opacity-90 border-r border-emerald-700 pr-3 mr-1">
-                  Hi, {user.name}
-                </span>
-                <button
-                  onClick={() => {
-                    setEditingProgram(null);
-                    setIsFormOpen(true);
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-500 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <PlusIcon className="w-4 h-4" /> <span className="hidden sm:inline">Rekod Aktiviti</span>
-                </button>
-                <button 
-                  onClick={logout} 
-                  className="p-2 bg-emerald-700/50 hover:bg-red-600/20 hover:text-red-200 rounded-lg text-emerald-100 border border-emerald-600 transition-colors flex items-center gap-2 px-3"
-                  title="Log Keluar"
-                >
-                  <LogOutIcon className="w-4 h-4" />
-                  <span className="hidden md:inline text-xs font-bold uppercase tracking-wider">Keluar</span>
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setIsLoginModalOpen(true)}
-                className="bg-emerald-700/50 hover:bg-emerald-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors border border-emerald-600 text-emerald-100 uppercase tracking-wider"
-              >
-                Log Masuk
-              </button>
-            )}
-          </div>
+          
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-1.5 hover:bg-emerald-800 rounded-md text-emerald-100 transition-colors mx-auto shrink-0"
+            title={isSidebarOpen ? "Tutup Sidebar" : "Buka Sidebar"}
+          >
+            <MenuIcon className="w-5 h-5" />
+          </button>
         </div>
-        
-        {/* Navigation Bar */}
-        <div className="bg-emerald-900/60 px-6 md:px-8 border-t border-emerald-700/50 flex gap-6 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`py-3 px-2 flex items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === 'dashboard'
-                ? 'border-emerald-400 text-white'
-                : 'border-transparent text-emerald-200 hover:text-white hover:border-emerald-400/50'
-            }`}
-          >
-            <HomeIcon className="w-4 h-4" /> Utama
-          </button>
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`py-3 px-2 flex items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === 'calendar'
-                ? 'border-emerald-400 text-white'
-                : 'border-transparent text-emerald-200 hover:text-white hover:border-emerald-400/50'
-            }`}
-          >
-            <CalendarIcon className="w-4 h-4" /> Kalendar
-          </button>
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`py-3 px-2 flex items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === 'reports'
-                ? 'border-emerald-400 text-white'
-                : 'border-transparent text-emerald-200 hover:text-white hover:border-emerald-400/50'
-            }`}
-          >
-            <FileTextIcon className="w-4 h-4" /> Senarai & Laporan
-          </button>
+
+        {/* Navigation Items */}
+        <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-2 px-3 custom-scrollbar">
+          <NavButton 
+            active={activeTab === 'dashboard'} 
+            onClick={() => handleTabClick('dashboard')} 
+            icon={<HomeIcon className="w-5 h-5 shrink-0" />} 
+            label="Utama" 
+            isOpen={isSidebarOpen} 
+          />
+          <NavButton 
+            active={activeTab === 'calendar'} 
+            onClick={() => handleTabClick('calendar')} 
+            icon={<CalendarIcon className="w-5 h-5 shrink-0" />} 
+            label="Kalendar" 
+            isOpen={isSidebarOpen} 
+          />
+          <NavButton 
+            active={activeTab === 'reports'} 
+            onClick={() => handleTabClick('reports')} 
+            icon={<FileTextIcon className="w-5 h-5 shrink-0" />} 
+            label="Laporan" 
+            isOpen={isSidebarOpen} 
+          />
           {user && (
-            <button
-              onClick={() => setActiveTab('categories')}
-              className={`py-3 px-2 flex items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === 'categories'
-                  ? 'border-emerald-400 text-white'
-                  : 'border-transparent text-emerald-200 hover:text-white hover:border-emerald-400/50'
-              }`}
-            >
-              <ListIcon className="w-4 h-4" /> Senarai Kategori
-            </button>
+            <NavButton 
+              active={activeTab === 'categories'} 
+              onClick={() => handleTabClick('categories')} 
+              icon={<ListIcon className="w-5 h-5 shrink-0" />} 
+              label="Kategori" 
+              isOpen={isSidebarOpen} 
+            />
           )}
           {user?.role === 'superadmin' && (
-            <button
-              onClick={() => setActiveTab('trash')}
-              className={`py-3 px-2 flex items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === 'trash'
-                  ? 'border-emerald-400 text-white'
-                  : 'border-transparent text-emerald-200 hover:text-white hover:border-emerald-400/50'
-              }`}
-            >
-              <Trash2Icon className="w-4 h-4" /> Bakul Sampah
-            </button>
+            <NavButton 
+              active={activeTab === 'trash'} 
+              onClick={() => handleTabClick('trash')} 
+              icon={<Trash2Icon className="w-5 h-5 shrink-0" />} 
+              label="Sampah" 
+              isOpen={isSidebarOpen} 
+            />
           )}
           {user?.role === 'superadmin' && (
+            <NavButton 
+              active={activeTab === 'settings'} 
+              onClick={() => handleTabClick('settings')} 
+              icon={<SettingsIcon className="w-5 h-5 shrink-0" />} 
+              label="Tetapan" 
+              isOpen={isSidebarOpen} 
+            />
+          )}
+        </div>
+
+        {/* User / Actions Footer */}
+        <div className="p-4 border-t border-emerald-800 flex flex-col gap-3 shrink-0">
+          {user ? (
+            <>
+              {isSidebarOpen && (
+                <div className="px-2 pb-2 border-b border-emerald-800">
+                  <p className="text-xs text-emerald-300 font-medium">Log masuk sebagai</p>
+                  <p className="text-sm font-bold text-white truncate">{user.name}</p>
+                </div>
+              )}
+              
+              <button
+                onClick={() => {
+                  setEditingProgram(null);
+                  setIsFormOpen(true);
+                }}
+                className={`bg-emerald-500 hover:bg-emerald-400 py-2 rounded-md text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-sm border border-emerald-400/50 text-white ${!isSidebarOpen && 'px-0'}`}
+                title="Rekod Aktiviti Baru"
+              >
+                <PlusIcon className="w-5 h-5 shrink-0" />
+                {isSidebarOpen && <span>Rekod Baru</span>}
+              </button>
+
+              <button 
+                onClick={logout} 
+                className={`py-2 hover:bg-red-500/20 hover:text-red-300 rounded-md text-emerald-300/80 transition-colors flex items-center justify-center gap-2 ${!isSidebarOpen && 'px-0'}`}
+                title="Log Keluar"
+              >
+                <LogOutIcon className="w-5 h-5 shrink-0" />
+                {isSidebarOpen && <span className="text-xs font-bold uppercase tracking-wider">Keluar</span>}
+              </button>
+            </>
+          ) : (
             <button
-              onClick={() => setActiveTab('settings')}
-              className={`py-3 px-2 flex items-center gap-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === 'settings'
-                  ? 'border-emerald-400 text-white'
-                  : 'border-transparent text-emerald-200 hover:text-white hover:border-emerald-400/50'
-              }`}
+              onClick={() => setIsLoginModalOpen(true)}
+              className={`bg-emerald-700 hover:bg-emerald-600 py-2 rounded-md text-sm font-bold transition-colors border border-emerald-600/50 text-emerald-100 uppercase tracking-wider flex items-center justify-center gap-2 ${!isSidebarOpen && 'px-0'}`}
+              title="Log Masuk"
             >
-              <SettingsIcon className="w-4 h-4" /> {user ? 'Tetapan Sistem' : 'Log Masuk'}
+              <KeyIcon className="w-5 h-5 shrink-0" />
+              {isSidebarOpen && <span>Log Masuk</span>}
             </button>
           )}
         </div>
-      </header>
+      </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto w-full p-4 md:p-6 pb-24 relative print:overflow-visible print:p-0 print:pb-0">
-        {loading && (
-          <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-sm z-30 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm font-medium text-slate-500">Memuatkan data...</p>
-            </div>
-          </div>
-        )}
-
-        {/* Toast Notification */}
-        {toast && (
-          <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white font-medium animate-in fade-in slide-in-from-top-2 ${
-            toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-          }`}>
-            {toast.type === 'success' ? <CheckCircle2Icon className="w-5 h-5" /> : <AlertCircleIcon className="w-5 h-5" />}
-            {toast.message}
-            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-80">
-              <XIcon className="w-4 h-4" />
+      <div className="flex-1 flex flex-col h-screen overflow-hidden print:h-auto print:overflow-visible">
+        {/* Mobile Header (Shows only on small screens) */}
+        <header className="md:hidden bg-emerald-800 text-white h-16 flex items-center justify-between px-4 shrink-0 shadow-sm print:hidden z-20">
+          <div className="flex items-center gap-3">
+             <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-1 hover:bg-emerald-700 rounded-md"
+            >
+              <MenuIcon className="w-6 h-6" />
             </button>
+            <div className="bg-emerald-900/40 px-1.5 py-0.5 rounded border border-white/5">
+              <span className="font-black text-sm tracking-tighter text-white">BZW</span>
+            </div>
+            <h1 className="text-sm font-bold tracking-tight">Sistem BZW 2026</h1>
           </div>
-        )}
+        </header>
 
-        <div className="max-w-[1600px] mx-auto">
-          {activeTab === 'dashboard' ? (
-            <Dashboard programs={programs} bzwSettings={bzwSettings} />
-          ) : activeTab === 'calendar' ? (
-            <CalendarView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} categories={categories} />
-          ) : activeTab === 'reports' ? (
-            <ReportView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} categories={categories} />
-          ) : activeTab === 'categories' && user ? (
-            <CategoryManager categories={categories} onUpdate={handleCategoryUpdate} />
-          ) : activeTab === 'trash' && user?.role === 'superadmin' ? (
-            <TrashView onRecover={handleRecoverProgram} onHardDelete={handleHardDeleteProgram} />
-          ) : activeTab === 'settings' && user ? (
-            <SettingsView onSetupDb={handleSetupDb} bzwSettings={bzwSettings} refreshSettings={fetchData} />
-          ) : (
-            <Dashboard programs={programs} bzwSettings={bzwSettings} />
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto w-full p-4 md:p-6 pb-24 relative custom-scrollbar print:overflow-visible print:p-0 print:pb-0">
+          {loading && (
+            <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-sm z-30 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm font-medium text-slate-500">Memuatkan data...</p>
+              </div>
+            </div>
           )}
-        </div>
-      </main>
+
+          {/* Toast Notification */}
+          {toast && (
+            <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white font-medium animate-in fade-in slide-in-from-top-2 ${
+              toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
+            }`}>
+              {toast.type === 'success' ? <CheckCircle2Icon className="w-5 h-5" /> : <AlertCircleIcon className="w-5 h-5" />}
+              {toast.message}
+              <button onClick={() => setToast(null)} className="ml-2 hover:opacity-80">
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="max-w-[1600px] mx-auto">
+            {activeTab === 'dashboard' && <Dashboard programs={programs} bzwSettings={bzwSettings} />}
+            {activeTab === 'calendar' && <CalendarView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} categories={categories} />}
+            {activeTab === 'reports' && <ReportView programs={programs} user={user} onEdit={editProgram} onDelete={handleDeleteProgram} bzwSettings={bzwSettings} categories={categories} />}
+            {activeTab === 'categories' && user && <CategoryManager categories={categories} onUpdate={handleCategoryUpdate} />}
+            {activeTab === 'trash' && user?.role === 'superadmin' && <TrashView onRecover={handleRecoverProgram} onHardDelete={handleHardDeleteProgram} />}
+            {activeTab === 'settings' && user && <SettingsView onSetupDb={handleSetupDb} bzwSettings={bzwSettings} refreshSettings={fetchData} />}
+            {/* Fallback to dashboard if invalid state */}
+            {!['dashboard', 'calendar', 'reports', 'categories', 'trash', 'settings'].includes(activeTab) && <Dashboard programs={programs} bzwSettings={bzwSettings} />}
+          </div>
+        </main>
+      </div>
 
       {/* Delete Confirmation Modal */}
       {deleteProgramId && (

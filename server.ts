@@ -29,6 +29,10 @@ function getMalaysiaDateTimeString(): string {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error("FATAL ERROR: JWT_SECRET environment variable is missing in production!");
+    process.exit(1);
+  }
   console.warn("WARNING: JWT_SECRET environment variable is missing. Using a fallback secret for development.");
 }
 const ACTUAL_JWT_SECRET = JWT_SECRET || 'dev-secret-bzw-2026-change-me';

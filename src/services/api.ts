@@ -88,7 +88,7 @@ export const api = {
     return res.json();
   },
   updateUser: async (id: string, data: any) => {
-    const res = await fetch(`${API_BASE}/users/${id}`, {
+    const res = await fetch(`${API_BASE}/users/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(data)
@@ -100,7 +100,7 @@ export const api = {
     return res.json();
   },
   deleteUser: async (id: string) => {
-    const res = await fetch(`${API_BASE}/users/${id}`, {
+    const res = await fetch(`${API_BASE}/users/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -149,7 +149,7 @@ export const api = {
     return res.json();
   },
   updateCategory: async (id: string, name: string) => {
-    const res = await fetch(`${API_BASE}/categories/${id}`, {
+    const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify({ name })
@@ -161,7 +161,7 @@ export const api = {
     return res.json();
   },
   deleteCategory: async (id: string) => {
-    const res = await fetch(`${API_BASE}/categories/${id}`, { 
+    const res = await fetch(`${API_BASE}/categories/${encodeURIComponent(id)}`, { 
         method: 'DELETE',
         headers: getHeaders() 
     });
@@ -203,7 +203,7 @@ export const api = {
     return res.json();
   },
   updateProgram: async (id: string, program: Program) => {
-    const res = await fetch(`${API_BASE}/programs/${id}`, {
+    const res = await fetch(`${API_BASE}/programs/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(program)
@@ -215,7 +215,7 @@ export const api = {
     return res.json();
   },
   deleteProgram: async (id: string) => {
-    const res = await fetch(`${API_BASE}/programs/${id}`, { 
+    const res = await fetch(`${API_BASE}/programs/${encodeURIComponent(id)}`, { 
         method: 'DELETE',
         headers: getHeaders() 
     });
@@ -258,7 +258,7 @@ export const api = {
     return res.json();
   },
   deleteBzwSetting: async (year: number) => {
-    const res = await fetch(`${API_BASE}/bzw-settings/${year}`, {
+    const res = await fetch(`${API_BASE}/bzw-settings/${encodeURIComponent(year.toString())}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
